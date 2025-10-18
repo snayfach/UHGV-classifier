@@ -111,10 +111,10 @@ Here field definitions and example values for `taxon_info.tsv`:
                  
 ## Citation
 
-If you use UHGV-classify in your research, please cite both the software and the underlying database publication:
+If you use UHGV-classify in your research, please cite both the software and the underlying publication:
 
 **Software:**  
-Stephen Nayfach. UHGV-classify v0.0.1. Zenodo. DOI: [https://doi.org/xxxxx]
+Coming soon
 
-**Database / Methods:**  
-Camargo et al., *bioRxiv*, 2025. [https://doi.org/xxxxx](https://doi.org/xxxxx)
+**Publication:**  
+Coming soon
