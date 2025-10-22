@@ -1,4 +1,4 @@
-# UHGV-classify: taxonomic classification of human gut viruses
+# UHGV-classifier: taxonomic classification of human gut viruses
 
 ## Overview
 
@@ -6,7 +6,7 @@ The code and database described here will allow you to obtain a taxonomic label 
 
 The UHGV is a comprehensive and deeply annotated database of viral genomes from the human gut microbiome. For more info on the data, see: https://github.com/snayfach/UHGV.
 
-UHGV-classify allows a user to assign a quasi-taxonomic label to their sequence, determine novelty relative to database, identify characteristics of the nearest viral group, and identify other phylogenetically related viruses in the database.
+The UHGV-classifier allows a user to assign a quasi-taxonomic label to their sequence, determine novelty relative to database, identify characteristics of the nearest viral group, and identify other phylogenetically related viruses in the database.
 
 <img src="img/classify_workflow.png" width="900">
 
@@ -111,7 +111,7 @@ Here field definitions and example values for `taxon_info.tsv`:
                  
 ## Citation
 
-If you use UHGV-classify in your research, please cite both the software and the underlying publication:
+If you use the UHGV-classifier in your research, please cite both the software and the underlying publication:
 
 **Software:**  
 Coming soon
