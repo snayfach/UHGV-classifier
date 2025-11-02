@@ -114,7 +114,7 @@ Here field definitions and example values for `taxon_info.tsv`:
 If you use the UHGV-classifier in your research, please cite both the software and the underlying publication:
 
 **Software:**  
-Coming soon
+Nayfach, S. (2025). UHGV classifier. Zenodo. https://doi.org/10.5281/zenodo.17418882
 
 **Publication:**  
 Coming soon
