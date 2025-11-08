@@ -113,8 +113,11 @@ Here field definitions and example values for `taxon_info.tsv`:
 
 If you use the UHGV-classifier in your research, please cite both the software and the underlying publication:
 
-**Software:**  
-Nayfach, S. (2025). UHGV classifier. Zenodo. https://doi.org/10.5281/zenodo.17418882
+**Publication:**
 
-**Publication:**  
-Coming soon
+> [**A genomic atlas of the human gut virome elucidates genetic factors shaping host interactions**](https://www.biorxiv.org/content/10.1101/2025.11.01.686033)
+>
+> Camargo, A. P., Baltoumas, F. A., Ndela, E. O., Fiamenghi, M. B., Merrill, B. D., Carter, M. M., Pinto, Y., Chakraborty, M., Andreeva, A., Ghiotto, G., Shaw, J., Proal, A. D., Sonnenburg, J. L., Bhatt, A. S., Roux, S., Pavlopoulos, G. A., Nayfach, S., & Kyrpides, N. C. — *bioRxiv* (2025), DOI: 10.1101/2025.11.01.686033
+
+**Software:**  
+> Nayfach, S. (2025). UHGV classifier (Version 1.0.0) [Software]. Zenodo. https://doi.org/10.5281/zenodo.17418882
