@@ -13,7 +13,7 @@ The UHGV-classifier allows a user to assign a quasi-taxonomic label to their seq
 ## Installation
 
 Install program using git and pip (add `--user` if you don't have root access):  
-`pip install git+https://github.com/snayfach/UHGV-classify.git`
+`pip install git+https://github.com/snayfach/UHGV-classifier.git`
 
 Install external dependencies using conda:  
 `conda install -c bioconda prodigal-gv diamond blast -y`
@@ -52,7 +52,7 @@ View command line usage for `classify` module:
 ## Example usage
 
 Download a test dataset of 5 phages from [Nishijima et al.](https://www.nature.com/articles/s41467-022-32832-w) using wget:  
-`wget https://raw.githubusercontent.com/snayfach/UHGV-classify/main/example/viral_sequences.fna -O viral_sequences.fna`
+`wget https://raw.githubusercontent.com/snayfach/UHGV-classifier/main/example/viral_sequences.fna -O viral_sequences.fna`
 
 Classify sequences, replacing `</path/to/uhgv-db>` as appropriate:   
 `uhgv classify -i viral_sequences.fna -o output -d </path/to/uhgv-db> -t 10`
