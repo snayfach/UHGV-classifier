@@ -11,69 +11,7 @@ from collections import OrderedDict
 
 import uhgv
 from uhgv import prodigal, utility
-
-
-def fetch_arguments(parser):
-    parser.set_defaults(func=main)
-    parser.set_defaults(program="classify")
-    parser.add_argument(
-        "-i",
-        dest="input",
-        type=str,
-        required=True,
-        metavar="PATH",
-        help="Path to nucleotide seqs",
-    )
-    parser.add_argument(
-        "-o",
-        dest="outdir",
-        type=str,
-        required=True,
-        metavar="PATH",
-        help="Path to output directory",
-    )
-    parser.add_argument(
-        "-d",
-        dest="dbdir",
-        type=str,
-        required=True,
-        metavar="PATH",
-        help="Path to database directory",
-    )
-    parser.add_argument(
-        "-s",
-        dest="sens",
-        choices=["fast", "sensitive", "very-sensitive"],
-        default="sensitive",
-        help="DIAMOND search sensitivity (sensitive)",
-    )
-    parser.add_argument(
-        "-t",
-        dest="threads",
-        type=int,
-        default=os.cpu_count(),
-        metavar="INT",
-        help=f"Number of threads to run program with ({os.cpu_count()})",
-    )
-    parser.add_argument(
-        "-p",
-        dest="splits",
-        type=int,
-        metavar="INT",
-        help="Number BLASTN jobs to spawn in parallel; 5GB RAM needed per job (default='threads')",
-    )
-    parser.add_argument(
-        "--continue",
-        action="store_true",
-        default=False,
-        help="Continue where program left off",
-    )
-    parser.add_argument(
-        "--quiet",
-        action="store_true",
-        default=False,
-        help="Suppress logging messages",
-    )
+from uhgv.utility import get_n_available_cpus
 
 
 def check_executables(requirements):
@@ -143,22 +81,24 @@ def assign_aai_taxonomy(taxonomy, score):
 
 
 class ViralClassifier:
-    def __init__(self, args):
-        self.set_args(args)
+    def __init__(self, input, outdir, dbdir, sens, threads, splits, continue_, quiet):
+        self.input = input
+        self.outdir = outdir
+        self.dbdir = dbdir.rstrip("/")
+        self.sens = sens
+        self.threads = threads if threads is not None else get_n_available_cpus()
+        self.splits = splits if splits is not None else self.threads
+        self.continue_ = continue_
+        self.quiet = quiet
+        self.blastcpus = math.ceil(1.0 * self.threads / self.splits)
         self.set_paths()
         self.perform_checks()
 
-    def set_args(self, args):
-        self.args = args
-        if self.args["splits"] is None:
-            self.args["splits"] = self.args["threads"]
-        self.args["blastcpus"] = math.ceil(1.0 * args["threads"] / args["splits"])
-
     def set_paths(self):
         self.paths = {}
-        self.paths["input"] = self.args["input"]
-        self.paths["outdir"] = self.args["outdir"]
-        self.paths["dbdir"] = self.args["dbdir"].rstrip("/")
+        self.paths["input"] = self.input
+        self.paths["outdir"] = self.outdir
+        self.paths["dbdir"] = self.dbdir
         self.paths["tmpdir"] = os.path.join(self.paths["outdir"], "tmp")
         self.paths["blastn"] = os.path.join(self.paths["tmpdir"], "blastn.tsv")
         self.paths["blastani"] = os.path.join(self.paths["tmpdir"], "blastani.tsv")
@@ -180,8 +120,8 @@ class ViralClassifier:
         check_executables(["diamond", "blastn"])
 
         # check database files
-        if not os.path.exists(self.args["dbdir"]):
-            sys.exit("\nError: database directory not found: '%s'" % self.args["dbdir"])
+        if not os.path.exists(self.dbdir):
+            sys.exit("\nError: database directory not found: '%s'" % self.dbdir)
         files = [
             "genomes.fna",
             "proteins.faa",
@@ -193,13 +133,13 @@ class ViralClassifier:
                 sys.exit("\nError: database file not found: '%s'" % file)
 
         # check input seqs
-        if not os.path.exists(self.args["input"]):
+        if not os.path.exists(self.input):
             sys.exit("\nError: input file does not exist")
 
         # check output directory does not exist
         # unless using --continue flag
         if os.path.exists(self.paths["tmpdir"]):
-            if not self.args["continue"]:
+            if not self.continue_:
                 sys.exit(
                     "\nError: output directory already exists. Remove directory or use --continue"
                 )
@@ -238,7 +178,7 @@ class ViralClassifier:
             return
 
         utility.split_fasta(
-            self.paths["input"], self.paths["blastdir"], self.args["splits"], ".fna"
+            self.paths["input"], self.paths["blastdir"], self.splits, ".fna"
         )
 
         commands = []
@@ -248,15 +188,13 @@ class ViralClassifier:
                 cmd = f"blastn -query {inpath} "
                 cmd += f"-db {self.paths['dbdir']}/genomes "
                 cmd += f"-out {self.paths['blastdir']}/{file}.tsv "
-                cmd += f"-num_threads {self.args['blastcpus']} "
+                cmd += f"-num_threads {self.blastcpus} "
                 cmd += "-outfmt '6 std qlen slen' "
                 cmd += "-max_target_seqs 1000 "
                 cmd += f"2> {self.paths['blastdir']}/{file}.log"
                 commands.append([cmd])
 
-        return_codes = utility.parallel(
-            utility.run_shell, commands, self.args["splits"]
-        )
+        return_codes = utility.parallel(utility.run_shell, commands, self.splits)
         if sum(return_codes) != 0:
             msg = "\nError: One or more blastn tasks failed to run\n"
             msg += f"See logs for details: {self.paths['blastdir']}/*.log"
@@ -277,7 +215,7 @@ class ViralClassifier:
         if os.path.exists(self.paths["prodigal"]):
             return
         prodigal_obj = prodigal.ProdigalGv(self.paths["input"], self.paths["prodigal"])
-        prodigal_obj.run_parallel_prodigal(threads=self.args["threads"])
+        prodigal_obj.run_parallel_prodigal(threads=self.threads)
 
     def self_protein_alignment(self):
 
@@ -311,7 +249,7 @@ class ViralClassifier:
                 cmd = "diamond blastp "
                 cmd += "--masking none "
                 cmd += "-k 1000 -e 1e-3 "
-                cmd += f"--{self.args['sens']} "
+                cmd += f"--{self.sens} "
                 cmd += f"--query {path} "
                 cmd += f"--db {path} "
                 cmd += f"--out {path}.tsv "
@@ -319,9 +257,7 @@ class ViralClassifier:
                 cmd += f"2> {path}.log"
                 commands.append([cmd])
 
-            return_codes = utility.parallel(
-                utility.run_shell, commands, self.args["splits"]
-            )
+            return_codes = utility.parallel(utility.run_shell, commands, self.splits)
             if sum(return_codes) != 0:
                 msg = "\nError: One or more diamond tasks failed to run\n"
                 msg += f"See logs for details: {selfaln_dir}/*.log"
@@ -360,10 +296,10 @@ class ViralClassifier:
         cmd = "diamond blastp "
         cmd += "-k 1000 -e 1e-3 "
         cmd += "--masking none "
-        cmd += f"--{self.args['sens']} "
+        cmd += f"--{self.sens} "
         cmd += f"--query {self.paths['prodigal']} "
         cmd += f"--out {self.paths['diamond']} "
-        cmd += f"--threads {self.args['threads']} "
+        cmd += f"--threads {self.threads} "
         cmd += f"--db {self.paths['dbdir']}/proteins.dmnd "
         cmd += "--outfmt 6 "
         cmd += f"&> {self.paths['diamond']}.log"
@@ -378,9 +314,7 @@ class ViralClassifier:
         if os.path.exists(self.paths["blastaai"]):
             return
 
-        utility.split_dmnd(
-            self.paths["diamond"], self.paths["dmnddir"], self.args["threads"]
-        )
+        utility.split_dmnd(self.paths["diamond"], self.paths["dmnddir"], self.threads)
 
         if not os.path.exists(self.paths["aaidir"]):
             os.makedirs(self.paths["aaidir"])
@@ -390,7 +324,7 @@ class ViralClassifier:
             inpath = os.path.join(self.paths["dmnddir"], file)
             outpath = os.path.join(self.paths["aaidir"], file)
             argument_list.append([inpath, outpath, self.paths["selfaai"]])
-        utility.parallel(utility.aai_main, argument_list, threads=self.args["threads"])
+        utility.parallel(utility.aai_main, argument_list, threads=self.threads)
 
         with open(self.paths["blastaai"], "w") as out:
             for file in os.listdir(self.paths["aaidir"]):
@@ -537,12 +471,23 @@ class ViralClassifier:
 ######################
 
 
-def main(args):
+def main(
+    input,
+    outdir,
+    dbdir,
+    sens="sensitive",
+    threads=None,
+    splits=None,
+    continue_=False,
+    quiet=False,
+):
 
     prog_start = time.time()
-    vclass = ViralClassifier(args)
+    vclass = ViralClassifier(
+        input, outdir, dbdir, sens, threads, splits, continue_, quiet
+    )
 
-    logger = utility.get_logger(args["quiet"])
+    logger = utility.get_logger(quiet)
     logger.info(f"\nUHGV v{uhgv.__version__}: classify")
 
     logger.info("[1/10] Reading input sequences")

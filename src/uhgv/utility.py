@@ -157,6 +157,18 @@ def max_mem_usage():
         return (max_mem_self + max_mem_child) / float(1e9)
 
 
+def get_n_available_cpus():
+    sched_getaffinity = getattr(os, "sched_getaffinity", None)
+    if sched_getaffinity is not None:
+        try:
+            n_cpus = len(sched_getaffinity(0))
+        except OSError:
+            n_cpus = os.cpu_count() or 1
+    else:
+        n_cpus = os.cpu_count() or 1
+    return n_cpus
+
+
 def mean(values):
     return sum(values) / len(values)
 

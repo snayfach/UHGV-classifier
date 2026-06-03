@@ -66,33 +66,16 @@ class DatabaseDownloader:
             sys.exit(msg)
 
 
-def fetch_arguments(parser):
-    parser.set_defaults(func=main)
-    parser.set_defaults(program="download")
-    parser.add_argument(
-        "destination",
-        type=str,
-        help="Directory where the database will be downloaded to.",
-    )
-    parser.add_argument(
-        "--quiet",
-        action="store_true",
-        default=False,
-        help="Suppress logging messages",
-    )
-
-
-def main(args):
-
+def main(destination, quiet=False):
     program_start = time.time()
-    logger = utility.get_logger(args["quiet"])
-    if not os.path.exists(args["destination"]):
-        os.makedirs(args["destination"])
+    logger = utility.get_logger(quiet)
+    if not os.path.exists(destination):
+        os.makedirs(destination)
 
     logger.info(f"\nUHGV v{uhgv.__version__}: download")
 
     logger.info("[1/5] Checking latest version of database...")
-    db = DatabaseDownloader(args["destination"])
+    db = DatabaseDownloader(destination)
 
     logger.info(f"[2/5] Downloading '{db.version}'...")
     db.download()
