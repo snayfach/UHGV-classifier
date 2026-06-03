@@ -10,8 +10,7 @@ import time
 from collections import OrderedDict
 
 import uhgv
-from uhgv import prodigal
-from uhgv import utility
+from uhgv import prodigal, utility
 
 
 def fetch_arguments(parser):
@@ -277,9 +276,7 @@ class ViralClassifier:
     def call_genes(self):
         if os.path.exists(self.paths["prodigal"]):
             return
-        prodigal_obj = prodigal.ProdigalGv(
-            self.paths["input"], self.paths["prodigal"]
-        )
+        prodigal_obj = prodigal.ProdigalGv(self.paths["input"], self.paths["prodigal"])
         prodigal_obj.run_parallel_prodigal(threads=self.args["threads"])
 
     def self_protein_alignment(self):
