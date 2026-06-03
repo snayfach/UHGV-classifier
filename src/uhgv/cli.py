@@ -7,6 +7,7 @@ from uhgv.utility import get_n_available_cpus
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 click.rich_click.THEME = "modern"
+click.rich_click.USE_RICH_MARKUP = True
 click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 click.rich_click.SHOW_METAVARS_COLUMN = False
 click.rich_click.APPEND_METAVARS_HELP = True
@@ -30,8 +31,8 @@ click.rich_click.OPTION_GROUPS = {
     ],
     "uhgv classify": [
         {
-            "name": "Input/Output options",
-            "options": ["-i", "-o", "-d"],
+            "name": "Input and output",
+            "options": ["input", "output", "database"],
         },
         {
             "name": "Additional options",
@@ -45,15 +46,16 @@ click.rich_click.OPTION_GROUPS = {
 @click.version_option(version=uhgv.__version__, prog_name="UHGV")
 def cli():
     """
-    UHGV-toolkit: taxonomic classifier for the Unified Human Gut Virome Catalog
-
-    Read the documentation at:
-    https://github.com/snayfach/UHGV
+    uhgv-classifier: classification of viral genomes into UHGV taxa-like clusters.
     """
 
 
 @cli.command(context_settings=CONTEXT_SETTINGS)
-@click.argument("destination", type=click.Path(file_okay=False))
+@click.argument(
+    "destination",
+    type=click.Path(file_okay=False),
+    help="Directory to write the uhgv-classify database.",
+)
 @click.option(
     "--keep",
     is_flag=True,
@@ -70,34 +72,26 @@ def cli():
 )
 def download(destination, keep, quiet):
     """
-    Download the UHGV genome database required for the [cyan]classify[/cyan] module.
-
-    The database will be saved in the [u]DESTINATION[/u] directory.
+    Download the UHGV genome database required for the [yellow]classify[/yellow] module.
     """
     download_module.main(destination=destination, quiet=quiet, keep=keep)
 
 
 @cli.command(context_settings=CONTEXT_SETTINGS)
-@click.option(
-    "-i",
-    "--input",
-    required=True,
+@click.argument(
+    "input",
     type=click.Path(exists=True),
-    help="Path to input genomes in FASTA format.",
+    help="Input FASTA file containing the genomes to classify.",
 )
-@click.option(
-    "-o",
-    "--outdir",
-    required=True,
+@click.argument(
+    "output",
     type=click.Path(),
-    help="Path to the output directory.",
+    help="Output directory to write the classification results.",
 )
-@click.option(
-    "-d",
-    "--dbdir",
-    required=True,
+@click.argument(
+    "database",
     type=click.Path(exists=True),
-    help="Path to the uhgv-classify database directory.",
+    help="Path to the uhgv-classify database.",
 )
 @click.option(
     "-s",
@@ -138,14 +132,14 @@ def download(destination, keep, quiet):
     show_default=True,
     help="Suppress logging messages.",
 )
-def classify(input, outdir, dbdir, sensitivity, threads, splits, continue_, quiet):
+def classify(input, output, database, sensitivity, threads, splits, continue_, quiet):
     """
-    Classify new genomes into phylogenetic groups from the UHGV.
+    Classify new genomes into UHGV taxa-like clusters.
     """
     classify_module.main(
         input=input,
-        outdir=outdir,
-        dbdir=dbdir,
+        outdir=output,
+        dbdir=database,
         sens=sensitivity,
         threads=threads,
         splits=splits,

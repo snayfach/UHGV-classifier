@@ -34,20 +34,22 @@ Download and unpack the latest database:
 > Peak mem: 2.18 GB<br>
 
 View command line usage for `classify` module:
-`uhgv classify -h`
+`uhgv classify --help`
 
->usage: uhgv classify [-h] -i PATH -o PATH -d PATH [-t THREADS] [-c]
+>usage: uhgv classify [-h] INPUT OUTPUT DATABASE [-s {fast,sensitive,very-sensitive}] [-t THREADS] [-p SPLITS] [--continue] [--quiet]
+>
+>positional arguments:
+>  INPUT       Path to input genomes in FASTA format.
+>  OUTPUT      Path to the output directory.
+>  DATABASE    Path to the uhgv-classify database directory.
 >
 >options:
 >  -h, --help  show this help message and exit
->
->required arguments:
->  -i PATH     Path to nucleotide seqs<br>
->  -o PATH     Path to output directory<br>
->  -d PATH     Path to database directory<br>
->  -t THREADS  Number of threads to run program with (1)<br>
->  --continue  Continue where program left off<br>
->  --quiet     Suppress logging messages<br>
+>  -s, --sensitivity  DIAMOND search sensitivity (default: sensitive)<br>
+>  -t, --threads      Number of threads to use (default: auto)<br>
+>  -p, --splits       Number of BLASTN jobs to spawn in parallel<br>
+>  --continue         Continue where the program left off<br>
+>  --quiet            Suppress logging messages<br>
 
 ## Example usage
 
@@ -55,7 +57,7 @@ Download a test dataset of 5 phages from [Nishijima et al.](https://www.nature.c
 `wget https://raw.githubusercontent.com/snayfach/UHGV-classifier/main/example/viral_sequences.fna -O viral_sequences.fna`
 
 Classify sequences, replacing `</path/to/uhgv-db>` as appropriate:
-`uhgv classify -i viral_sequences.fna -o output -d </path/to/uhgv-db> -t 10`
+`uhgv classify viral_sequences.fna output </path/to/uhgv-db> -t 10`
 
 > UHGV-classify v0.0.1: classify<br>
 > [1/10] Reading input sequences<br>
