@@ -25,7 +25,7 @@ click.rich_click.OPTION_GROUPS = {
     "uhgv download": [
         {
             "name": "Main options",
-            "options": ["destination", "--quiet"],
+            "options": ["destination", "--keep", "--quiet"],
         },
     ],
     "uhgv classify": [
@@ -55,19 +55,26 @@ def cli():
 @cli.command(context_settings=CONTEXT_SETTINGS)
 @click.argument("destination", type=click.Path(file_okay=False))
 @click.option(
+    "--keep",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Do not delete the compressed database file.",
+)
+@click.option(
     "--quiet",
     is_flag=True,
     default=False,
     show_default=True,
     help="Suppress logging messages.",
 )
-def download(destination, quiet):
+def download(destination, keep, quiet):
     """
     Download the UHGV genome database required for the [cyan]classify[/cyan] module.
 
     The database will be saved in the [u]DESTINATION[/u] directory.
     """
-    download_module.main(destination=destination, quiet=quiet)
+    download_module.main(destination=destination, quiet=quiet, keep=keep)
 
 
 @cli.command(context_settings=CONTEXT_SETTINGS)
