@@ -9,7 +9,6 @@ import sys
 import time
 from collections import OrderedDict
 
-import uhgv
 from uhgv import prodigal, utility
 from uhgv.utility import get_n_available_cpus
 
@@ -487,39 +486,38 @@ def main(
         input, outdir, dbdir, sens, threads, splits, continue_, quiet
     )
 
-    logger = utility.get_logger(quiet)
-    logger.info(f"\nUHGV v{uhgv.__version__}: classify")
+    console = utility.ConsoleLogger(quiet)
+    console.log("UHGV classify")
 
-    logger.info("[1/10] Reading input sequences")
+    console.log("Reading input sequences")
     vclass.load_queries()
 
-    logger.info("[2/10] Reading database sequences")
+    console.log("Reading database sequences")
     vclass.load_refdb()
 
-    logger.info("[3/10] Calculating nucleotide similarity with blastn")
-    vclass.blastani()
+    with console.status("Calculating nucleotide similarity with BLASTN..."):
+        vclass.blastani()
 
-    logger.info("[4/10] Identifying genes using pyrodigal-gv")
-    vclass.call_genes()
+    with console.status("Predicting genes with pyrodigal-gv..."):
+        vclass.call_genes()
 
-    logger.info("[5/10] Performing self alignment")
-    vclass.self_protein_alignment()
+    with console.status("Computing self-protein alignments..."):
+        vclass.self_protein_alignment()
 
-    logger.info("[6/10] Aligning proteins to database")
-    vclass.db_protein_alignment()
+    with console.status("Searching database with DIAMOND..."):
+        vclass.db_protein_alignment()
 
-    logger.info("[7/10] Calculating amino acid similarity scores")
-    vclass.blastaai()
+    with console.status("Computing AAI scores..."):
+        vclass.blastaai()
 
-    logger.info("[8/10] Finding top database hits")
+    console.log("Finding top database hits")
     vclass.find_top_hits()
 
-    logger.info("[9/10] Performing phylogenetic assignment")
+    console.log("Assigning taxonomy")
     vclass.assign_taxonomy()
 
-    logger.info("[10/10] Writing output file(s)")
+    console.log("Writing output files")
     vclass.write_results()
 
-    logger.info("\nSuccess!")
-    logger.info("Elapsed time (s): %s" % round(time.time() - prog_start, 2))
-    logger.info("Peak RAM usage (GB): %s" % round(utility.max_mem_usage(), 2))
+    console.log("Elapsed time (s): %s" % round(time.time() - prog_start, 2))
+    console.log("Peak RAM usage (GB): %s" % round(utility.max_mem_usage(), 2))

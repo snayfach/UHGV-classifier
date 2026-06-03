@@ -5,7 +5,6 @@ import sys
 import time
 import urllib.request
 
-import uhgv
 from uhgv import utility
 
 
@@ -68,26 +67,26 @@ class DatabaseDownloader:
 
 def main(destination, quiet=False):
     program_start = time.time()
-    logger = utility.get_logger(quiet)
+    console = utility.ConsoleLogger(quiet)
     if not os.path.exists(destination):
         os.makedirs(destination)
 
-    logger.info(f"\nUHGV v{uhgv.__version__}: download")
+    console.log("UHGV download")
 
-    logger.info("[1/5] Checking latest version of database...")
+    console.log("Checking latest version of database...")
     db = DatabaseDownloader(destination)
 
-    logger.info(f"[2/5] Downloading '{db.version}'...")
-    db.download()
+    with console.status("Downloading..."):
+        db.download()
 
-    logger.info(f"[3/5] Extracting '{db.version}'...")
-    db.extract()
+    with console.status("Extracting..."):
+        db.extract()
 
-    logger.info(f"[4/5] Building BLASTN database...")
+    console.log("Building BLASTN database...")
     db.blastn_makedb()
 
-    logger.info(f"[5/5] Building DIAMOND database...")
+    console.log("Building DIAMOND database...")
     db.diamond_makedb()
 
-    logger.info("Run time: %s seconds" % round(time.time() - program_start, 2))
-    logger.info("Peak mem: %s GB" % round(utility.max_mem_usage(), 2))
+    console.log("Run time: %s seconds" % round(time.time() - program_start, 2))
+    console.log("Peak mem: %s GB" % round(utility.max_mem_usage(), 2))

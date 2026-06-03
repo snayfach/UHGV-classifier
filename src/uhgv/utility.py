@@ -1,5 +1,4 @@
 import csv
-import logging
 import multiprocessing as mp
 import os
 import platform
@@ -11,6 +10,7 @@ import textwrap
 import time
 from collections import defaultdict
 from contextlib import contextmanager
+from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
 
@@ -21,6 +21,7 @@ else:
     import gzip
     import lzma
 import psutil
+from rich.console import Console
 
 
 class Compression(Enum):
@@ -133,18 +134,20 @@ def read_fasta(filepath, uppercase=False, strip_n=False, compress=False):
                 break
 
 
-def get_logger(quiet):
-    logger = logging.getLogger(__name__)
-    if not quiet:
-        logger.setLevel(logging.INFO)
-    else:
-        logger.setLevel(logging.WARNING)
-    formatter = logging.Formatter(fmt="%(message)s")
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    logger.handlers.clear()
-    logger.addHandler(stream_handler)
-    return logger
+class ConsoleLogger:
+    def __init__(self, quiet=False):
+        self.console = Console(quiet=quiet, highlight=False)
+
+    def log(self, message):
+        timestamp = datetime.now().strftime("%H-%M-%S")
+        self.console.print(f"[dim][{timestamp}][/dim] {message}")
+
+    def error(self, message):
+        timestamp = datetime.now().strftime("%H-%M-%S")
+        self.console.print(f"[dim][{timestamp}][/dim] [red]{message}[/red]")
+
+    def status(self, message):
+        return self.console.status(message)
 
 
 def max_mem_usage():
