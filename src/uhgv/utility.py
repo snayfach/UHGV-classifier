@@ -304,14 +304,16 @@ def parse_blast(handle):
 
 
 def yield_alignment_blocks(handle):
-    # init block with 1st record
-    key, alns = None, None
-    for aln in parse_blast(handle):
-        key = (aln["qname"], aln["tname"])
-        alns = [aln]
-        break
+    records = parse_blast(handle)
+    first_aln = next(records, None)
+    if first_aln is None:
+        return
+
+    key = (first_aln["qname"], first_aln["tname"])
+    alns = [first_aln]
+
     # loop over remaining records
-    for aln in parse_blast(handle):
+    for aln in records:
         # extend block
         if (aln["qname"], aln["tname"]) == key:
             alns.append(aln)

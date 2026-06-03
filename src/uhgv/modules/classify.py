@@ -8,9 +8,15 @@ import subprocess as sp
 import sys
 import time
 from collections import OrderedDict
+from typing import TypedDict
 
 from uhgv import prodigal, utility
 from uhgv.utility import get_n_available_cpus
+
+
+class SelfAlignmentStats(TypedDict):
+    genes: int
+    selfscore: float
 
 
 def blast_to_tophits(
@@ -212,7 +218,7 @@ class ViralClassifier:
     def self_protein_alignment(self):
 
         if not os.path.exists(self.paths["selfaai"]):
-            data = {}
+            data: dict[str, SelfAlignmentStats] = {}
 
             # make dir
             selfaln_dir = os.path.join(self.paths["tmpdir"], "selfaln")
@@ -221,17 +227,30 @@ class ViralClassifier:
 
             # split fasta
             handle, qname, filenum = None, None, 0
-            for r in utility.read_fasta(self.paths["prodigal"]):
-                genome = r.accession.rsplit("_", 1)[0]
-                if genome not in data:
-                    data[genome] = {"genes": 0, "selfscore": 0}
-                data[genome]["genes"] += 1
-                if qname is None or genome != qname:
-                    filenum += 1
-                    qname = genome
-                    handle = open(os.path.join(selfaln_dir, str(filenum)) + ".faa", "w")
-                handle.write(">" + r.accession + "\n" + str(r.seq) + "\n")
-            handle.close()
+            try:
+                for r in utility.read_fasta(self.paths["prodigal"]):
+                    genome = r.accession.rsplit("_", 1)[0]
+                    if genome not in data:
+                        data[genome] = {"genes": 0, "selfscore": 0.0}
+                    data[genome]["genes"] += 1
+                    if qname is None or genome != qname:
+                        if handle is not None:
+                            handle.close()
+                        filenum += 1
+                        qname = genome
+                        handle = open(
+                            os.path.join(selfaln_dir, str(filenum)) + ".faa", "w"
+                        )
+                    if handle is None:
+                        sys.exit(
+                            "\nError: no protein sequences found in Prodigal output"
+                        )
+                    handle.write(">" + r.accession + "\n" + str(r.seq) + "\n")
+            finally:
+                if handle is not None:
+                    handle.close()
+            if filenum == 0:
+                sys.exit("\nError: no protein sequences found in Prodigal output")
 
             # run diamond
             commands = []
@@ -270,13 +289,15 @@ class ViralClassifier:
             files = [_ for _ in os.listdir(selfaln_dir) if _.endswith(".tsv")]
             for file in files:
                 path = os.path.join(selfaln_dir, file)
-                score = 0
+                score = 0.0
                 genome = None
-                for r in csv.reader(open(path), delimiter="\t"):
-                    genome = r[0].rsplit("_", 1)[0]
-                    if r[0] == r[1]:
-                        score += float(r[-1])
-                data[genome]["selfscore"] = score
+                with open(path) as fin:
+                    for r in csv.reader(fin, delimiter="\t"):
+                        genome = r[0].rsplit("_", 1)[0]
+                        if r[0] == r[1]:
+                            score += float(r[-1])
+                if genome is not None:
+                    data[genome]["selfscore"] = score
 
             # write results
             with open(self.paths["selfaai"], "w") as out:
@@ -403,19 +424,30 @@ class ViralClassifier:
                 r["aai_score"] = float(h["norm_score"])
                 r["aai_taxonomy"] = self.ref_genomes[h["reference"]]["taxonomy"]
 
-            if (
-                r["ani_reference"] is not None
-                and float(r["ani_identity"]) >= 95
-                and (float(r["ani_query_af"]) >= 85 or float(r["ani_target_af"]) >= 85)
-            ):
-                while r["ani_taxonomy"].endswith(";Unclassified"):
-                    r["ani_taxonomy"] = r["ani_taxonomy"].rsplit(";Unclassified", 1)[0]
-                r["taxon_lineage"] = r["ani_taxonomy"]
-                r["taxon_id"] = r["taxon_lineage"].split(";")[-1]
-                r["class_method"] = "nucleotide"
-                r["class_rank"] = "species"
+            classified_by_ani = False
+            ani_reference = r["ani_reference"]
+            if ani_reference is not None:
+                ani_identity = r["ani_identity"]
+                ani_query_af = r["ani_query_af"]
+                ani_target_af = r["ani_target_af"]
+                ani_taxonomy = r["ani_taxonomy"]
+                assert ani_identity is not None
+                assert ani_query_af is not None
+                assert ani_target_af is not None
+                assert ani_taxonomy is not None
+                if float(ani_identity) >= 95 and (
+                    float(ani_query_af) >= 85 or float(ani_target_af) >= 85
+                ):
+                    while ani_taxonomy.endswith(";Unclassified"):
+                        ani_taxonomy = ani_taxonomy.rsplit(";Unclassified", 1)[0]
+                    r["ani_taxonomy"] = ani_taxonomy
+                    r["taxon_lineage"] = ani_taxonomy
+                    r["taxon_id"] = ani_taxonomy.split(";")[-1]
+                    r["class_method"] = "nucleotide"
+                    r["class_rank"] = "species"
+                    classified_by_ani = True
 
-            elif r["aai_reference"] is not None:
+            if not classified_by_ani and r["aai_reference"] is not None:
                 r["taxon_lineage"] = assign_aai_taxonomy(
                     r["aai_taxonomy"], r["aai_score"]
                 )
