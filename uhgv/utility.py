@@ -4,7 +4,6 @@ import multiprocessing as mp
 import os
 import platform
 import resource
-import shutil
 import signal
 import subprocess as sp
 import sys
@@ -216,47 +215,6 @@ def split_fasta(inpath, outdir, num_splits, ext):
         cursize += len(r)
 
     out.close()
-
-
-def parallel_prodigal(tmpdir, input, output, threads, cleanup):
-
-    tmpdir_prodigal = os.path.join(tmpdir, "prodigal")
-
-    # split input DNA seqs into chunks
-    split_fasta(inpath=input, outdir=tmpdir_prodigal, num_splits=threads, ext=".fna")
-
-    # list shell commands
-    commands = []
-    for file in os.listdir(tmpdir_prodigal):
-        if not file.endswith(".fna"):
-            continue
-        tmpin = os.path.join(tmpdir_prodigal, file)
-        tmpout = os.path.join(tmpdir_prodigal, file.rsplit(".", 1)[0] + ".faa")
-        cmd = "prodigal-gv -p meta "
-        cmd += f"-i {tmpin} "
-        cmd += f"-a {tmpout} "
-        cmd += "1> /dev/null "
-        cmd += f"2> {tmpout}.log"
-        commands.append([cmd])
-
-    # run shell commands in parallel
-    return_codes = parallel(run_shell, commands, threads)
-    if sum(return_codes) != 0:
-        msg = "\nError: One or more prodigal-gv tasks failed to run\n"
-        msg += f"See logs for details: {tmpdir_prodigal}/*.log"
-        sys.exit(msg)
-
-    # combine outputs
-    with open(output, "w") as out:
-        for file in os.listdir(tmpdir_prodigal):
-            if not file.endswith(".faa"):
-                continue
-            for line in open(os.path.join(tmpdir_prodigal, file)):
-                out.write(line)
-
-    # clean up
-    if cleanup:
-        shutil.rmtree(tmpdir_prodigal)
 
 
 def init_worker():

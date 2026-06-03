@@ -10,6 +10,7 @@ import time
 from collections import OrderedDict
 
 import uhgv
+from uhgv import prodigal
 from uhgv import utility
 
 
@@ -177,7 +178,7 @@ class ViralClassifier:
     def perform_checks(self):
 
         # check executables
-        check_executables(["prodigal-gv", "diamond", "blastn"])
+        check_executables(["diamond", "blastn"])
 
         # check database files
         if not os.path.exists(self.args["dbdir"]):
@@ -276,13 +277,10 @@ class ViralClassifier:
     def call_genes(self):
         if os.path.exists(self.paths["prodigal"]):
             return
-        utility.parallel_prodigal(
-            tmpdir=self.paths["tmpdir"],
-            input=self.paths["input"],
-            output=self.paths["prodigal"],
-            threads=self.args["threads"],
-            cleanup=True,
+        prodigal_obj = prodigal.ProdigalGv(
+            self.paths["input"], self.paths["prodigal"]
         )
+        prodigal_obj.run_parallel_prodigal(threads=self.args["threads"])
 
     def self_protein_alignment(self):
 
@@ -559,7 +557,7 @@ def main(args):
     logger.info("[3/10] Calculating nucleotide similarity with blastn")
     vclass.blastani()
 
-    logger.info("[4/10] Identifying genes using prodigal-gv")
+    logger.info("[4/10] Identifying genes using pyrodigal-gv")
     vclass.call_genes()
 
     logger.info("[5/10] Performing self alignment")

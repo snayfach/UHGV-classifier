@@ -7,6 +7,5 @@ channels:
 dependencies:
   - blast
   - diamond
-  - prodigal-gv
-  - biopython
+  - pyrodigal-gv
   - psutil

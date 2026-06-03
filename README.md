@@ -2,7 +2,7 @@
 
 ## Overview
 
-The code and database described here will allow you to obtain a taxonomic label for your viral genome(s) based on the Unified Human Gut Virome (UHGV) taxonomy. 
+The code and database described here will allow you to obtain a taxonomic label for your viral genome(s) based on the Unified Human Gut Virome (UHGV) taxonomy.
 
 The UHGV is a comprehensive and deeply annotated database of viral genomes from the human gut microbiome. For more info on the data, see: https://github.com/snayfach/UHGV.
 
@@ -12,16 +12,16 @@ The UHGV-classifier allows a user to assign a quasi-taxonomic label to their seq
 
 ## Installation
 
-Install program using git and pip (add `--user` if you don't have root access):  
+Install program using git and pip (add `--user` if you don't have root access):
 `pip install git+https://github.com/snayfach/UHGV-classifier.git`
 
-Install external dependencies using conda:  
-`conda install -c bioconda prodigal-gv diamond blast -y`
+Install external dependencies using conda:
+`conda install -c bioconda pyrodigal-gv diamond blast -y`
 
-View available modules:  
+View available modules:
 `uhgv -h`
 
-Download and unpack the latest database:   
+Download and unpack the latest database:
 `uhgv download .`
 
 > UHGV-tools: download<br>
@@ -33,7 +33,7 @@ Download and unpack the latest database:
 > Run time: 250.6 seconds<br>
 > Peak mem: 2.18 GB<br>
 
-View command line usage for `classify` module:  
+View command line usage for `classify` module:
 `uhgv classify -h`
 
 >usage: uhgv classify [-h] -i PATH -o PATH -d PATH [-t THREADS] [-c]
@@ -51,17 +51,17 @@ View command line usage for `classify` module:
 
 ## Example usage
 
-Download a test dataset of 5 phages from [Nishijima et al.](https://www.nature.com/articles/s41467-022-32832-w) using wget:  
+Download a test dataset of 5 phages from [Nishijima et al.](https://www.nature.com/articles/s41467-022-32832-w) using wget:
 `wget https://raw.githubusercontent.com/snayfach/UHGV-classifier/main/example/viral_sequences.fna -O viral_sequences.fna`
 
-Classify sequences, replacing `</path/to/uhgv-db>` as appropriate:   
+Classify sequences, replacing `</path/to/uhgv-db>` as appropriate:
 `uhgv classify -i viral_sequences.fna -o output -d </path/to/uhgv-db> -t 10`
 
 > UHGV-classify v0.0.1: classify<br>
 > [1/10] Reading input sequences<br>
 > [2/10] Reading database sequences<br>
 > [3/10] Estimating ANI with blastn<br>
-> [4/10] Identifying genes using prodigal-gv<br>
+> [4/10] Identifying genes using pyrodigal-gv<br>
 > [5/10] Performing self alignment<br>
 > [6/10] Aligning proteins to database<br>
 > [7/10] Calculating amino acid similarity scores<br>
@@ -71,7 +71,7 @@ Classify sequences, replacing `</path/to/uhgv-db>` as appropriate:
 
 There are two main output files:
 
-- `output/classify_summary.tsv`: information related to classification 
+- `output/classify_summary.tsv`: information related to classification
 - `output/taxon_info.tsv`: details about the classified taxa (ex: lifestyle, genome size, host)
 
 Here are field definitions and example values for `classify_summary.tsv`:
@@ -108,7 +108,6 @@ Here field definitions and example values for `taxon_info.tsv`:
 | genome\_length_median | median genome length of viruses in lineage | 100566.0 |
 | genome\_length_iqr | interquartile range of genome length | 100566.0 - 100566.0 |
 
-                 
 ## Citation
 
 If you use the UHGV-classifier in your research, please cite both the software and the underlying publication:
@@ -119,5 +118,5 @@ If you use the UHGV-classifier in your research, please cite both the software a
 >
 > Camargo, A. P., Baltoumas, F. A., Ndela, E. O., Fiamenghi, M. B., Merrill, B. D., Carter, M. M., Pinto, Y., Chakraborty, M., Andreeva, A., Ghiotto, G., Shaw, J., Proal, A. D., Sonnenburg, J. L., Bhatt, A. S., Roux, S., Pavlopoulos, G. A., Nayfach, S., & Kyrpides, N. C. — *bioRxiv* (2025), DOI: 10.1101/2025.11.01.686033
 
-**Software:**  
+**Software:**
 > Nayfach, S. (2025). UHGV classifier (Version 1.0.0) [Software]. Zenodo. https://doi.org/10.5281/zenodo.17418882
