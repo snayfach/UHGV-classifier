@@ -11,7 +11,7 @@ setup(
     install_requires=[
         "biopython",
         "importlib-metadata>=0.12; python_version<'3.8'",
-        "psutil"
+        "psutil",
     ],
     python_requires=">=3.6",
     entry_points={"console_scripts": ["uhgv=uhgv.cli:cli"]},

@@ -1,11 +1,12 @@
 import os
-import sys
 import shutil
+import subprocess as sp
+import sys
 import time
 import urllib.request
-import subprocess as sp
-from uhgv import utility
+
 import uhgv
+from uhgv import utility
 
 
 class DatabaseDownloader:

@@ -1,17 +1,16 @@
 #!/usr/bin/env python
 
 import csv
-import os
-import sys
 import math
-import uhgv
-import Bio.SeqIO
+import os
 import shutil
-import time
-import gzip
 import subprocess as sp
-from uhgv import utility
+import sys
+import time
 from collections import OrderedDict
+
+import uhgv
+from uhgv import utility
 
 
 def fetch_arguments(parser):
@@ -118,7 +117,13 @@ def blast_to_tophits(
 
 
 def assign_aai_taxonomy(taxonomy, score):
-    cutoffs = {"species": 95.0, "subgenus": 80.0, "genus": 65.0, "subfamily": 32.0, "family": 5.5}
+    cutoffs = {
+        "species": 95.0,
+        "subgenus": 80.0,
+        "genus": 65.0,
+        "subfamily": 32.0,
+        "family": 5.5,
+    }
     prefix2rank = {
         "vOTU": "species",
         "vSUBGEN": "subgenus",
@@ -167,9 +172,7 @@ class ViralClassifier:
         self.paths["classify_summary"] = os.path.join(
             self.paths["outdir"], "classify_summary.tsv"
         )
-        self.paths["taxon_info"] = os.path.join(
-            self.paths["outdir"], "taxon_info.tsv"
-        )
+        self.paths["taxon_info"] = os.path.join(self.paths["outdir"], "taxon_info.tsv")
 
     def perform_checks(self):
 
@@ -178,10 +181,9 @@ class ViralClassifier:
 
         # check database files
         if not os.path.exists(self.args["dbdir"]):
-            sys.exit("\nError: database directory not found: '%s'" % args["dbdir"])
+            sys.exit("\nError: database directory not found: '%s'" % self.args["dbdir"])
         files = [
             "genomes.fna",
-            #"genomes.nal",
             "proteins.faa",
             "proteins.dmnd",
             "genome_taxonomy.tsv",
@@ -206,9 +208,9 @@ class ViralClassifier:
 
     def load_queries(self):
         self.queries = OrderedDict()
-        for r in Bio.SeqIO.parse(self.paths["input"], "fasta"):
-            self.queries[r.id] = {}
-            self.queries[r.id]["length"] = len(r.seq)
+        for r in utility.read_fasta(self.paths["input"]):
+            self.queries[r.accession] = {}
+            self.queries[r.accession]["length"] = len(r)
 
     def load_refdb(self):
         self.ref_genomes = {}
@@ -252,10 +254,12 @@ class ViralClassifier:
                 cmd += f"2> {self.paths['blastdir']}/{file}.log"
                 commands.append([cmd])
 
-        return_codes = utility.parallel(utility.run_shell, commands, self.args["splits"])
+        return_codes = utility.parallel(
+            utility.run_shell, commands, self.args["splits"]
+        )
         if sum(return_codes) != 0:
             msg = "\nError: One or more blastn tasks failed to run\n"
-            msg += f"See logs for details: {blastdir}/*.log"
+            msg += f"See logs for details: {self.paths['blastdir']}/*.log"
             sys.exit(msg)
 
         with open(self.paths["blastn"], "w") as out:
@@ -283,7 +287,6 @@ class ViralClassifier:
     def self_protein_alignment(self):
 
         if not os.path.exists(self.paths["selfaai"]):
-
             data = {}
 
             # make dir
@@ -293,8 +296,8 @@ class ViralClassifier:
 
             # split fasta
             handle, qname, filenum = None, None, 0
-            for r in Bio.SeqIO.parse(self.paths["prodigal"], "fasta"):
-                genome = r.id.rsplit("_", 1)[0]
+            for r in utility.read_fasta(self.paths["prodigal"]):
+                genome = r.accession.rsplit("_", 1)[0]
                 if genome not in data:
                     data[genome] = {"genes": 0, "selfscore": 0}
                 data[genome]["genes"] += 1
@@ -302,7 +305,7 @@ class ViralClassifier:
                     filenum += 1
                     qname = genome
                     handle = open(os.path.join(selfaln_dir, str(filenum)) + ".faa", "w")
-                handle.write(">" + r.id + "\n" + str(r.seq) + "\n")
+                handle.write(">" + r.accession + "\n" + str(r.seq) + "\n")
             handle.close()
 
             # run diamond
@@ -317,11 +320,13 @@ class ViralClassifier:
                 cmd += f"--query {path} "
                 cmd += f"--db {path} "
                 cmd += f"--out {path}.tsv "
-                cmd += f"--threads 1 "
+                cmd += "--threads 1 "
                 cmd += f"2> {path}.log"
                 commands.append([cmd])
 
-            return_codes = utility.parallel(utility.run_shell, commands, self.args["splits"])
+            return_codes = utility.parallel(
+                utility.run_shell, commands, self.args["splits"]
+            )
             if sum(return_codes) != 0:
                 msg = "\nError: One or more diamond tasks failed to run\n"
                 msg += f"See logs for details: {selfaln_dir}/*.log"
@@ -377,12 +382,14 @@ class ViralClassifier:
     def blastaai(self):
         if os.path.exists(self.paths["blastaai"]):
             return
-            
-        utility.split_dmnd(self.paths["diamond"], self.paths["dmnddir"], self.args["threads"])
-  
+
+        utility.split_dmnd(
+            self.paths["diamond"], self.paths["dmnddir"], self.args["threads"]
+        )
+
         if not os.path.exists(self.paths["aaidir"]):
             os.makedirs(self.paths["aaidir"])
-             
+
         argument_list = []
         for file in os.listdir(self.paths["dmnddir"]):
             inpath = os.path.join(self.paths["dmnddir"], file)
@@ -391,23 +398,20 @@ class ViralClassifier:
         utility.parallel(utility.aai_main, argument_list, threads=self.args["threads"])
 
         with open(self.paths["blastaai"], "w") as out:
-           
-            for file in os.listdir(self.paths["aaidir"]):            
+            for file in os.listdir(self.paths["aaidir"]):
                 handle = open(os.path.join(self.paths["aaidir"], file))
                 out.write(next(handle))
                 break
-                        
-            for file in os.listdir(self.paths["aaidir"]):            
+
+            for file in os.listdir(self.paths["aaidir"]):
                 handle = open(os.path.join(self.paths["aaidir"], file))
                 next(handle)
                 for line in handle:
                     out.write(line)
                 handle.close()
-        
+
         shutil.rmtree(self.paths["dmnddir"])
         shutil.rmtree(self.paths["aaidir"])
-
-
 
     def find_top_hits(self):
         for type in ["blastani", "blastaai"]:
@@ -417,12 +421,13 @@ class ViralClassifier:
 
     def assign_taxonomy(self):
         for id in self.queries:
-
             r = {}
             r["genome_id"] = id
             r["genome_length"] = self.queries[id]["length"]
             ### temp fix
-            r["genome_num_genes"] = self.queries[id]["genes"] if "genes" in self.queries[id] else "NA"
+            r["genome_num_genes"] = (
+                self.queries[id]["genes"] if "genes" in self.queries[id] else "NA"
+            )
             r["taxon_id"] = None
             r["taxon_lineage"] = None
             r["class_method"] = None
@@ -508,7 +513,9 @@ class ViralClassifier:
         with open(self.paths["classify_summary"], "w") as out:
             out.write("\t".join(fields) + "\n")
             for query in self.queries.values():
-                rec = [query["record"][f] if f in query["record"] else "NA" for f in fields]
+                rec = [
+                    query["record"][f] if f in query["record"] else "NA" for f in fields
+                ]
                 out.write("\t".join([str(_) for _ in rec]) + "\n")
 
         fields = [
@@ -520,19 +527,13 @@ class ViralClassifier:
             "lifestyle",
             "genome_length_median",
             "genome_length_iqr",
-#            "ncbi_genomes",
-#            "ictv_genomes",
-#            "uhgv_genomes",
-#            "uhgv_complete",
-#            "uhgv_high_quality",
-#            "uhgv_medium_quality",
-#            "uhgv_best_quality",
-#            "ncbi_list",
         ]
         with open(self.paths["taxon_info"], "w") as out:
             out.write("\t".join(fields) + "\n")
             for query in self.queries.values():
-                rec = [query["record"][f] if f in query["record"] else "NA" for f in fields]
+                rec = [
+                    query["record"][f] if f in query["record"] else "NA" for f in fields
+                ]
                 out.write("\t".join([str(_) for _ in rec]) + "\n")
 
 

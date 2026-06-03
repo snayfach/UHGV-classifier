@@ -1,9 +1,4 @@
-##
-## misc functions
-##
-
 import csv
-import gzip
 import logging
 import multiprocessing as mp
 import os
@@ -13,12 +8,130 @@ import shutil
 import signal
 import subprocess as sp
 import sys
+import textwrap
 import time
 from collections import defaultdict
-from operator import itemgetter
+from contextlib import contextmanager
+from enum import Enum, auto
+from pathlib import Path
 
-import Bio.SeqIO
+if sys.version_info >= (3, 14):
+    from compression import bz2, gzip, lzma, zstd
+else:
+    import bz2
+    import gzip
+    import lzma
 import psutil
+
+
+class Compression(Enum):
+    bzip2 = auto()
+    gzip = auto()
+    xz = auto()
+    zstd = auto()
+    uncompressed = auto()
+
+
+def is_compressed(filepath: Path) -> Compression:
+    with open(filepath, "rb") as fin:
+        signature = fin.peek(8)[:8]
+        if tuple(signature[:2]) == (0x1F, 0x8B):
+            return Compression.gzip
+        elif tuple(signature[:3]) == (0x42, 0x5A, 0x68):
+            return Compression.bzip2
+        elif tuple(signature[:7]) == (0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00, 0x00):
+            return Compression.xz
+        elif tuple(signature[:4]) == (0x28, 0xB5, 0x2F, 0xFD):
+            return Compression.zstd
+        else:
+            return Compression.uncompressed
+
+
+@contextmanager
+def open_file(filepath):
+    filepath_compression = is_compressed(filepath)
+    if filepath_compression is Compression.gzip:
+        fin = gzip.open(filepath, "rt")
+    elif filepath_compression is Compression.bzip2:
+        fin = bz2.open(filepath, "rt")
+    elif filepath_compression is Compression.xz:
+        fin = lzma.open(filepath, "rt")
+    elif filepath_compression is Compression.zstd and sys.version_info >= (3, 14):
+        fin = zstd.open(filepath, "rt")
+    else:
+        fin = open(filepath, "r")
+    try:
+        yield fin
+    finally:
+        fin.close()
+
+
+class Sequence:
+    def __init__(self, header: str, seq: str, compress: bool = False) -> None:
+        self._compress = compress
+        self._header = header
+        self._seq = seq.encode("ascii")
+
+    @property
+    def header(self) -> str:
+        return self._header
+
+    @property
+    def accession(self) -> str:
+        return self._header.split()[0]
+
+    @property
+    def seq(self) -> str:
+        return self._seq.decode()
+
+    def __str__(self) -> str:
+        return (
+            f">{self.header}\n{textwrap.fill(self.seq, 60, break_on_hyphens=False)}\n"
+        )
+
+    def __len__(self) -> int:
+        return len(self.seq)
+
+    def __getitem__(self, k: int):
+        return Sequence(self.header, self.seq[k], self._compress)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, self.__class__):
+            return self.seq.casefold() == other.seq.casefold()
+        if isinstance(other, str):
+            return self.seq.casefold() == other.casefold()
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self.seq.casefold())
+
+
+def read_fasta(filepath, uppercase=False, strip_n=False, compress=False):
+    with open_file(filepath) as fin:
+        last = None
+        while True:
+            if not last:
+                for line in fin:
+                    if line[0] == ">":
+                        last = line.removesuffix("\n")
+                        break
+            if not last:
+                break
+            name, seqs, last = last[1:], [], None
+            for line in fin:
+                if line[0] == ">":
+                    last = line.removesuffix("\n")
+                    break
+                seqs.append(line.removesuffix("\n"))
+            seqs = "".join(seqs)
+            if uppercase:
+                seqs = seqs.upper()
+            if strip_n:
+                seqs = seqs.strip("nN")
+            if len(seqs):
+                yield Sequence(name, seqs, compress)
+            if not last:
+                break
 
 
 def get_logger(quiet):
@@ -45,11 +158,6 @@ def max_mem_usage():
         return (max_mem_self + max_mem_child) / float(1e9)
 
 
-##
-## misc utilities
-##
-
-
 def mean(values):
     return sum(values) / len(values)
 
@@ -63,25 +171,25 @@ def split_dmnd(inpath, outdir, num_splits, ext=""):
     split_size = int(total_size / num_splits)
 
     last_id = None
+    with open(inpath) as infile:
+        for l in infile:
+            last_id = l.split()[0].rsplit("_", 1)[0]
+
     split_num = 1
     cursize = 0
-    outfile = open(os.path.join(outdir, str(split_num)), "w")
-    infile = open(inpath)
-    for l in infile:
-        outfile.write(l)
-        cursize += len(l)
-        last_id = l.split()[0].rsplit("_", 1)[0]
-    for l in infile:
-        cur_id = l.split()[0].rsplit("_", 1)[0]
-        if cursize > split_size and cur_id != last_id:
-            split_num += 1
-            cursize = 0
-            outfile = open(os.path.join(outdir, str(split_num)), "w")
-        outfile.write(l)
-        cursize += len(l)
-        last_id = cur_id
-    outfile.close()   
-    infile.close()
+    outfile = open(os.path.join(outdir, str(split_num)) + ext, "w")
+    with open(inpath) as infile:
+        for l in infile:
+            cur_id = l.split()[0].rsplit("_", 1)[0]
+            if cursize > split_size and cur_id != last_id:
+                split_num += 1
+                cursize = 0
+                outfile.close()
+                outfile = open(os.path.join(outdir, str(split_num)) + ext, "w")
+            outfile.write(l)
+            cursize += len(l)
+            last_id = cur_id
+    outfile.close()
 
 
 def split_fasta(inpath, outdir, num_splits, ext):
@@ -90,9 +198,8 @@ def split_fasta(inpath, outdir, num_splits, ext):
         os.makedirs(outdir)
 
     total_size = 0
-    handle = gzip.open(inpath, "rt") if inpath.endswith(".gz") else open(inpath)
-    for r in Bio.SeqIO.parse(handle, "fasta"):
-        total_size += len(r.seq)
+    for r in read_fasta(inpath):
+        total_size += len(r)
 
     split_size = int(total_size / num_splits)
 
@@ -100,14 +207,13 @@ def split_fasta(inpath, outdir, num_splits, ext):
     cursize = 0
     out = open(os.path.join(outdir, str(split_num)) + ext, "w")
 
-    handle = gzip.open(inpath, "rt") if inpath.endswith(".gz") else open(inpath)
-    for r in Bio.SeqIO.parse(handle, "fasta"):
+    for r in read_fasta(inpath):
         if cursize > split_size:
             split_num += 1
             cursize = 0
             out = open(os.path.join(outdir, str(split_num)) + ext, "w")
-        out.write(">" + r.id + "\n" + str(r.seq) + "\n")
-        cursize += len(r.seq)
+        out.write(str(r))
+        cursize += len(r)
 
     out.close()
 
@@ -129,7 +235,7 @@ def parallel_prodigal(tmpdir, input, output, threads, cleanup):
         cmd = "prodigal-gv -p meta "
         cmd += f"-i {tmpin} "
         cmd += f"-a {tmpout} "
-        cmd += f"1> /dev/null "
+        cmd += "1> /dev/null "
         cmd += f"2> {tmpout}.log"
         commands.append([cmd])
 
@@ -153,10 +259,6 @@ def parallel_prodigal(tmpdir, input, output, threads, cleanup):
         shutil.rmtree(tmpdir_prodigal)
 
 
-##
-## code for parallelization
-##
-
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
@@ -173,7 +275,7 @@ def run_shell(cmd):
     p = sp.Popen(cmd, shell=True)
     return p.wait()
 
-        
+
 def parallel(function, arguments_list, threads):
     pool = mp.Pool(threads, init_worker)
     try:
@@ -189,11 +291,6 @@ def parallel(function, arguments_list, threads):
     except KeyboardInterrupt:
         pid = os.getpid()
         terminate_tree(pid)
-
-
-##
-## code to calculate ANI
-##
 
 
 def parse_blast(handle):
@@ -256,7 +353,6 @@ def compute_cov(alns):
     coords = sorted([a["qcoords"] for a in alns])
     nr_coords = [coords[0]]
     for start, stop in coords[1:]:
-
         # overlapping, update start coord
         if start <= (nr_coords[-1][1] + 1):
             nr_coords[-1][1] = max(nr_coords[-1][1], stop)
@@ -296,22 +392,20 @@ def ani_calculator(inpath, outpath):
                 alns = prune_alns(alns)
                 if len(alns) > 0:
                     qname, tname = alns[0]["qname"], alns[0]["tname"]
-                    ani = round(sum(a["len"] * a["pid"] for a in alns) / sum(
-                        a["len"] for a in alns
-                    ), 2)
+                    ani = round(
+                        sum(a["len"] * a["pid"] for a in alns)
+                        / sum(a["len"] for a in alns),
+                        2,
+                    )
                     qcov, tcov = compute_cov(alns)
                     norm_score = float(qcov) * ani / 100
                     row = [qname, tname, ani, qcov, tcov, norm_score]
                     out.write("\t".join([str(_) for _ in row]) + "\n")
 
 
-##
-## code to calculate AAI
-##
-
 def yield_diamond_hits(diamond):
     with open(diamond) as f:
-        try :
+        try:
             hits = [next(f).split()]
         except StopIteration:
             return

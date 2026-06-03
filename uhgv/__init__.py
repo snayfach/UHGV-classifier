@@ -1,6 +1,6 @@
 from uhgv.modules import (
-    download,
     classify,
+    download,
 )
 
 try:
