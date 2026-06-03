@@ -13,23 +13,6 @@ from uhgv import prodigal, utility
 from uhgv.utility import get_n_available_cpus
 
 
-def check_executables(requirements):
-    fails = 0
-    for program in requirements:
-        found = False
-        for path in os.environ["PATH"].split(os.pathsep):
-            exe_file = os.path.join(path.strip('"'), program)
-            if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
-                found = True
-                break
-        if not found:
-            msg = f"\nError: required program '{program}' not executable or not found on $PATH"
-            sys.stderr.write(msg)
-            fails += 1
-    if fails > 0:
-        sys.exit("")
-
-
 def blast_to_tophits(
     inpath, querykey="query", refkey="reference", scorekey="norm_score", refs=None
 ):
@@ -116,7 +99,7 @@ class ViralClassifier:
     def perform_checks(self):
 
         # check executables
-        check_executables(["diamond", "blastn"])
+        utility.check_executables(["diamond", "blastn"])
 
         # check database files
         if not os.path.exists(self.dbdir):
@@ -184,14 +167,24 @@ class ViralClassifier:
         for file in os.listdir(self.paths["blastdir"]):
             if file.endswith(".fna"):
                 inpath = os.path.join(self.paths["blastdir"], file)
-                cmd = f"blastn -query {inpath} "
-                cmd += f"-db {self.paths['dbdir']}/genomes "
-                cmd += f"-out {self.paths['blastdir']}/{file}.tsv "
-                cmd += f"-num_threads {self.blastcpus} "
-                cmd += "-outfmt '6 std qlen slen' "
-                cmd += "-max_target_seqs 1000 "
-                cmd += f"2> {self.paths['blastdir']}/{file}.log"
-                commands.append([cmd])
+                outpath = os.path.join(self.paths["blastdir"], f"{file}.tsv")
+                logpath = os.path.join(self.paths["blastdir"], f"{file}.log")
+                cmd = [
+                    "blastn",
+                    "-query",
+                    inpath,
+                    "-db",
+                    f"{self.paths['dbdir']}/genomes",
+                    "-out",
+                    outpath,
+                    "-num_threads",
+                    str(self.blastcpus),
+                    "-outfmt",
+                    "6 std qlen slen",
+                    "-max_target_seqs",
+                    "1000",
+                ]
+                commands.append([cmd, logpath])
 
         return_codes = utility.parallel(utility.run_shell, commands, self.splits)
         if sum(return_codes) != 0:
@@ -245,16 +238,27 @@ class ViralClassifier:
             files = [_ for _ in os.listdir(selfaln_dir) if _.endswith(".faa")]
             for file in files:
                 path = os.path.join(selfaln_dir, file)
-                cmd = "diamond blastp "
-                cmd += "--masking none "
-                cmd += "-k 1000 -e 1e-3 "
-                cmd += f"--{self.sens} "
-                cmd += f"--query {path} "
-                cmd += f"--db {path} "
-                cmd += f"--out {path}.tsv "
-                cmd += "--threads 1 "
-                cmd += f"2> {path}.log"
-                commands.append([cmd])
+                logpath = f"{path}.log"
+                cmd = [
+                    "diamond",
+                    "blastp",
+                    "--masking",
+                    "none",
+                    "-k",
+                    "1000",
+                    "-e",
+                    "1e-3",
+                    f"--{self.sens}",
+                    "--query",
+                    path,
+                    "--db",
+                    path,
+                    "--out",
+                    f"{path}.tsv",
+                    "--threads",
+                    "1",
+                ]
+                commands.append([cmd, logpath])
 
             return_codes = utility.parallel(utility.run_shell, commands, self.splits)
             if sum(return_codes) != 0:
@@ -292,21 +296,33 @@ class ViralClassifier:
     def db_protein_alignment(self):
         if os.path.exists(self.paths["diamond"]):
             return
-        cmd = "diamond blastp "
-        cmd += "-k 1000 -e 1e-3 "
-        cmd += "--masking none "
-        cmd += f"--{self.sens} "
-        cmd += f"--query {self.paths['prodigal']} "
-        cmd += f"--out {self.paths['diamond']} "
-        cmd += f"--threads {self.threads} "
-        cmd += f"--db {self.paths['dbdir']}/proteins.dmnd "
-        cmd += "--outfmt 6 "
-        cmd += f"&> {self.paths['diamond']}.log"
-        p = sp.Popen(cmd, shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
-        out, err = p.communicate()
-        if p.returncode != 0:
-            msg = "\nError: DIAMOND database searched failed to run\n"
-            msg += f"See log for details: {self.paths['diamond']}.log"
+        logpath = f"{self.paths['diamond']}.log"
+        cmd = [
+            "diamond",
+            "blastp",
+            "-k",
+            "1000",
+            "-e",
+            "1e-3",
+            "--masking",
+            "none",
+            f"--{self.sens}",
+            "--query",
+            self.paths["prodigal"],
+            "--out",
+            self.paths["diamond"],
+            "--threads",
+            str(self.threads),
+            "--db",
+            f"{self.paths['dbdir']}/proteins.dmnd",
+            "--outfmt",
+            "6",
+        ]
+        with open(logpath, "w") as log:
+            result = sp.run(cmd, stdout=log, stderr=sp.STDOUT)
+        if result.returncode != 0:
+            msg = "\nError: DIAMOND database search failed to run\n"
+            msg += f"See log for details: {logpath}"
             sys.exit(msg)
 
     def blastaai(self):

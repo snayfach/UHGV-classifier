@@ -24,6 +24,23 @@ import psutil
 from rich.console import Console
 
 
+def check_executables(requirements):
+    fails = 0
+    for program in requirements:
+        found = False
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path.strip('"'), program)
+            if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+                found = True
+                break
+        if not found:
+            msg = f"\nError: required program '{program}' not executable or not found on $PATH"
+            sys.stderr.write(msg)
+            fails += 1
+    if fails > 0:
+        sys.exit("")
+
+
 class Compression(Enum):
     bzip2 = auto()
     gzip = auto()
@@ -244,9 +261,13 @@ def terminate_tree(pid, including_parent=True):
         parent.terminate()
 
 
-def run_shell(cmd):
-    p = sp.Popen(cmd, shell=True)
-    return p.wait()
+def run_shell(cmd, log_path=None):
+    if log_path:
+        with open(log_path, "w") as log:
+            result = sp.run(cmd, stdout=sp.DEVNULL, stderr=log)
+    else:
+        result = sp.run(cmd)
+    return result.returncode
 
 
 def parallel(function, arguments_list, threads):

@@ -35,33 +35,41 @@ class DatabaseDownloader:
         self.dbdir = os.path.join(
             self.destination, self.filename.replace(".tar.gz", "")
         )
-        cmd = "makeblastdb "
-        cmd += f"-in {self.dbdir}/genomes.fna "
-        cmd += f"-out {self.dbdir}/genomes "
-        cmd += "-dbtype nucl "
-        cmd += "1> /dev/null "
-        cmd += f"2> {self.dbdir}/genomes.log "
-        p = sp.Popen(cmd, shell=True)
-        return_code = p.wait()
-        if return_code != 0:
+        logpath = f"{self.dbdir}/genomes.log"
+        cmd = [
+            "makeblastdb",
+            "-in",
+            f"{self.dbdir}/genomes.fna",
+            "-out",
+            f"{self.dbdir}/genomes",
+            "-dbtype",
+            "nucl",
+        ]
+        with open(logpath, "w") as log:
+            result = sp.run(cmd, stdout=sp.DEVNULL, stderr=log)
+        if result.returncode != 0:
             msg = "\nError: BLASTN database failed to build\n"
-            msg += f"See log for details: {self.dbdir}/genomes.log"
+            msg += f"See log for details: {logpath}"
             sys.exit(msg)
 
     def diamond_makedb(self):
         self.dbdir = os.path.join(
             self.destination, self.filename.replace(".tar.gz", "")
         )
-        cmd = "diamond makedb "
-        cmd += f"--in {self.dbdir}/proteins.faa "
-        cmd += f"--db {self.dbdir}/proteins "
-        cmd += "1> /dev/null "
-        cmd += f"2> {self.dbdir}/proteins.log "
-        p = sp.Popen(cmd, shell=True)
-        return_code = p.wait()
-        if return_code != 0:
+        logpath = f"{self.dbdir}/proteins.log"
+        cmd = [
+            "diamond",
+            "makedb",
+            "--in",
+            f"{self.dbdir}/proteins.faa",
+            "--db",
+            f"{self.dbdir}/proteins",
+        ]
+        with open(logpath, "w") as log:
+            result = sp.run(cmd, stdout=sp.DEVNULL, stderr=log)
+        if result.returncode != 0:
             msg = "\nError: DIAMOND database failed to build\n"
-            msg += f"See log for details: {self.dbdir}/proteins.log"
+            msg += f"See log for details: {logpath}"
             sys.exit(msg)
 
 
@@ -72,6 +80,8 @@ def main(destination, quiet=False):
         os.makedirs(destination)
 
     console.log("UHGV download")
+
+    utility.check_executables(["makeblastdb", "diamond"])
 
     console.log("Checking latest version of database...")
     db = DatabaseDownloader(destination)
