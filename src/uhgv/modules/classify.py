@@ -527,6 +527,7 @@ def main(
     splits=None,
     continue_=False,
     quiet=False,
+    cleanup=False,
 ):
 
     prog_start = time.time()
@@ -535,7 +536,6 @@ def main(
     )
 
     console = utility.ConsoleLogger(quiet)
-    console.log("UHGV classify")
 
     console.log("Reading input sequences")
     vclass.load_queries()
@@ -566,6 +566,10 @@ def main(
 
     console.log("Writing output files")
     vclass.write_results()
+
+    if cleanup and os.path.exists(vclass.paths["tmpdir"]):
+        console.log("Removing temporary directory")
+        shutil.rmtree(vclass.paths["tmpdir"])
 
     console.log("Elapsed time (s): %s" % round(time.time() - prog_start, 2))
     console.log("Peak RAM usage (GB): %s" % round(utility.max_mem_usage(), 2))

@@ -8,7 +8,6 @@ from uhgv.utility import get_n_available_cpus
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 click.rich_click.THEME = "modern"
 click.rich_click.USE_RICH_MARKUP = True
-click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 click.rich_click.SHOW_METAVARS_COLUMN = False
 click.rich_click.APPEND_METAVARS_HELP = True
 click.rich_click.MAX_WIDTH = None
@@ -22,25 +21,6 @@ click.rich_click.COMMAND_GROUPS = {
     ]
 }
 
-click.rich_click.OPTION_GROUPS = {
-    "uhgv download": [
-        {
-            "name": "Main options",
-            "options": ["destination", "--keep", "--quiet"],
-        },
-    ],
-    "uhgv classify": [
-        {
-            "name": "Input and output",
-            "options": ["input", "output", "database"],
-        },
-        {
-            "name": "Additional options",
-            "options": ["-s", "-t", "-p", "--continue", "--quiet"],
-        },
-    ],
-}
-
 
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.version_option(version=uhgv.__version__, prog_name="UHGV")
@@ -52,7 +32,7 @@ def cli():
 
 @cli.command(context_settings=CONTEXT_SETTINGS)
 @click.argument(
-    "destination",
+    "output",
     type=click.Path(file_okay=False),
     help="Directory to write the uhgv-classify database.",
 )
@@ -70,11 +50,11 @@ def cli():
     show_default=True,
     help="Suppress logging messages.",
 )
-def download(destination, keep, quiet):
+def download(output, keep, quiet):
     """
     Download the UHGV genome database required for the [yellow]classify[/yellow] module.
     """
-    download_module.main(destination=destination, quiet=quiet, keep=keep)
+    download_module.main(destination=output, quiet=quiet, keep=keep)
 
 
 @cli.command(context_settings=CONTEXT_SETTINGS)
@@ -118,6 +98,13 @@ def download(destination, keep, quiet):
     "Defaults to the number of threads.",
 )
 @click.option(
+    "--cleanup",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Remove the tmp temporary directory after the pipeline finishes.",
+)
+@click.option(
     "--continue",
     "continue_",
     is_flag=True,
@@ -132,7 +119,9 @@ def download(destination, keep, quiet):
     show_default=True,
     help="Suppress logging messages.",
 )
-def classify(input, output, database, sensitivity, threads, splits, continue_, quiet):
+def classify(
+    input, output, database, sensitivity, threads, splits, continue_, quiet, cleanup
+):
     """
     Classify new genomes into UHGV taxa-like clusters.
     """
@@ -145,6 +134,7 @@ def classify(input, output, database, sensitivity, threads, splits, continue_, q
         splits=splits,
         continue_=continue_,
         quiet=quiet,
+        cleanup=cleanup,
     )
 
 

@@ -19,16 +19,16 @@ from uhgv import utility
 
 
 class DatabaseDownloader:
-    def __init__(self, destination, console):
+    def __init__(self, output, console):
         self.url = "https://portal.nersc.gov/UHGV/toolkit/"
-        self.destination = destination
+        self.output = output
         self.console = console
         self.version = (
             urlopen(self.url + "CURRENT_RELEASE.txt").read().decode("utf-8").strip()
         )
         self.filename = self.version + ".tar.gz"
         self.database_url = self.url + self.filename
-        self.output_file = os.path.join(self.destination, self.filename)
+        self.output_file = os.path.join(self.output, self.filename)
 
     def _copy_url(self, task_id, progress):
         self.console.log(
@@ -61,12 +61,10 @@ class DatabaseDownloader:
             self._copy_url(task_id, progress)
 
     def extract(self):
-        shutil.unpack_archive(self.output_file, self.destination, "gztar")
+        shutil.unpack_archive(self.output_file, self.output, "gztar")
 
     def blastn_makedb(self):
-        self.dbdir = os.path.join(
-            self.destination, self.filename.replace(".tar.gz", "")
-        )
+        self.dbdir = os.path.join(self.output, self.filename.replace(".tar.gz", ""))
         logpath = f"{self.dbdir}/genomes.log"
         cmd = [
             "makeblastdb",
@@ -85,9 +83,7 @@ class DatabaseDownloader:
             sys.exit(msg)
 
     def diamond_makedb(self):
-        self.dbdir = os.path.join(
-            self.destination, self.filename.replace(".tar.gz", "")
-        )
+        self.dbdir = os.path.join(self.output, self.filename.replace(".tar.gz", ""))
         logpath = f"{self.dbdir}/proteins.log"
         cmd = [
             "diamond",
@@ -105,18 +101,16 @@ class DatabaseDownloader:
             sys.exit(msg)
 
 
-def main(destination, quiet=False, keep=False):
+def main(output, quiet=False, keep=False):
     program_start = time.time()
     console = utility.ConsoleLogger(quiet)
-    if not os.path.exists(destination):
-        os.makedirs(destination)
-
-    console.log("UHGV download")
+    if not os.path.exists(output):
+        os.makedirs(output)
 
     utility.check_executables(["makeblastdb", "diamond"])
 
     console.log("Checking latest version of database…")
-    db = DatabaseDownloader(destination, console)
+    db = DatabaseDownloader(output, console)
 
     db.download()
 
