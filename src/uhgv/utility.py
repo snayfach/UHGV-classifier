@@ -156,11 +156,11 @@ class ConsoleLogger:
         self.console = Console(quiet=quiet, highlight=False)
 
     def log(self, message):
-        timestamp = datetime.now().strftime("%H-%M-%S")
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.console.print(f"[dim][{timestamp}][/dim] {message}")
 
     def error(self, message):
-        timestamp = datetime.now().strftime("%H-%M-%S")
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.console.print(f"[dim][{timestamp}][/dim] [red]{message}[/red]")
 
     def status(self, message):

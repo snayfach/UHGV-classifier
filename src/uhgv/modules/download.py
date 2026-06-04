@@ -31,7 +31,7 @@ class DatabaseDownloader:
         self.output_file = os.path.join(self.destination, self.filename)
 
     def _copy_url(self, task_id, progress):
-        progress.console.log(
+        self.console.log(
             f"Requesting [blue link={self.database_url}]{self.database_url}[/blue link]."
         )
         response = urlopen(self.database_url)
@@ -115,18 +115,18 @@ def main(destination, quiet=False, keep=False):
 
     utility.check_executables(["makeblastdb", "diamond"])
 
-    console.log("Checking latest version of database...")
+    console.log("Checking latest version of database…")
     db = DatabaseDownloader(destination, console)
 
     db.download()
 
-    with console.status("Extracting..."):
+    with console.status("Extracting…"):
         db.extract()
 
-    console.log("Building BLASTN database...")
+    console.log("Building BLASTN database…")
     db.blastn_makedb()
 
-    console.log("Building DIAMOND database...")
+    console.log("Building DIAMOND database…")
     db.diamond_makedb()
 
     if not keep:

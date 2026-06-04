@@ -543,19 +543,19 @@ def main(
     console.log("Reading database sequences")
     vclass.load_refdb()
 
-    with console.status("Calculating nucleotide similarity with BLASTN..."):
+    with console.status("Calculating nucleotide similarity with BLASTN…"):
         vclass.blastani()
 
-    with console.status("Predicting genes with pyrodigal-gv..."):
+    with console.status("Predicting genes with pyrodigal-gv…"):
         vclass.call_genes()
 
-    with console.status("Computing self-protein alignments..."):
+    with console.status("Computing self-protein alignments…"):
         vclass.self_protein_alignment()
 
-    with console.status("Searching database with DIAMOND..."):
+    with console.status("Searching database with DIAMOND…"):
         vclass.db_protein_alignment()
 
-    with console.status("Computing AAI scores..."):
+    with console.status("Computing AAI scores…"):
         vclass.blastaai()
 
     console.log("Finding top database hits")
