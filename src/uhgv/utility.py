@@ -10,6 +10,7 @@ import textwrap
 import time
 from collections import defaultdict
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
@@ -204,14 +205,14 @@ def split_dmnd(inpath, outdir, num_splits, ext=""):
     last_id = None
     with open(inpath) as infile:
         for line in infile:
-            last_id = line.split()[0].rsplit("_", 1)[0]
+            last_id = line.split("\t", 1)[0].rsplit("_", 1)[0]
 
     split_num = 1
     cursize = 0
     outfile = open(os.path.join(outdir, str(split_num)) + ext, "w")
     with open(inpath) as infile:
         for line in infile:
-            cur_id = line.split()[0].rsplit("_", 1)[0]
+            cur_id = line.split("\t", 1)[0].rsplit("_", 1)[0]
             if cursize > split_size and cur_id != last_id:
                 split_num += 1
                 cursize = 0
@@ -287,20 +288,87 @@ def parallel(function, arguments_list, threads):
         terminate_tree(pid)
 
 
+@dataclass
+class BlastRow:
+    qseqid: str
+    sseqid: str
+    pident: float
+    length: int
+    mismatch: int
+    gapopen: int
+    qstart: int
+    qend: int
+    sstart: int
+    send: int
+    evalue: float
+    bitscore: float
+    qlen: int
+    slen: int
+
+    @property
+    def qcoords(self):
+        return sorted([self.qstart, self.qend])
+
+    @property
+    def tcoords(self):
+        return sorted([self.sstart, self.send])
+
+    @classmethod
+    def from_csv(cls, row):
+        return cls(
+            qseqid=row[0],
+            sseqid=row[1],
+            pident=float(row[2]),
+            length=int(row[3]),
+            mismatch=int(row[4]),
+            gapopen=int(row[5]),
+            qstart=int(row[6]),
+            qend=int(row[7]),
+            sstart=int(row[8]),
+            send=int(row[9]),
+            evalue=float(row[10]),
+            bitscore=float(row[11]),
+            qlen=int(row[12]),
+            slen=int(row[13]),
+        )
+
+
+@dataclass
+class DiamondRow:
+    qseqid: str
+    sseqid: str
+    pident: float
+    length: int
+    mismatch: int
+    gapopen: int
+    qstart: int
+    qend: int
+    sstart: int
+    send: int
+    evalue: float
+    bitscore: float
+
+    @classmethod
+    def from_csv(cls, row):
+        return cls(
+            qseqid=row[0],
+            sseqid=row[1],
+            pident=float(row[2]),
+            length=int(row[3]),
+            mismatch=int(row[4]),
+            gapopen=int(row[5]),
+            qstart=int(row[6]),
+            qend=int(row[7]),
+            sstart=int(row[8]),
+            send=int(row[9]),
+            evalue=float(row[10]),
+            bitscore=float(row[11]),
+        )
+
+
 def parse_blast(handle):
-    for line in handle:
-        r = line.split()
-        yield {
-            "qname": r[0],
-            "tname": r[1],
-            "pid": float(r[2]),
-            "len": float(r[3]),
-            "qcoords": sorted([int(r[6]), int(r[7])]),
-            "tcoords": sorted([int(r[8]), int(r[9])]),
-            "qlen": float(r[-2]),
-            "tlen": float(r[-1]),
-            "evalue": float(r[-4]),
-        }
+    for r in csv.reader(handle, delimiter="\t"):
+        yield BlastRow.from_csv(r)
 
 
 def yield_alignment_blocks(handle):
@@ -309,32 +377,27 @@ def yield_alignment_blocks(handle):
     if first_aln is None:
         return
 
-    key = (first_aln["qname"], first_aln["tname"])
+    key = (first_aln.qseqid, first_aln.sseqid)
     alns = [first_aln]
 
-    # loop over remaining records
     for aln in records:
-        # extend block
-        if (aln["qname"], aln["tname"]) == key:
+        if (aln.qseqid, aln.sseqid) == key:
             alns.append(aln)
-        # yield block and start new one
         else:
             yield alns
-            key = (aln["qname"], aln["tname"])
+            key = (aln.qseqid, aln.sseqid)
             alns = [aln]
     yield alns
 
 
 def prune_alns(alns, min_length=0, min_evalue=1e-3):
-    # remove alignments with < min_length or > min_evalue
-    # discard alignments after the query length has been covered by 110%
     keep = []
     cur_aln = 0
-    qry_len = alns[0]["qlen"]
+    qry_len = alns[0].qlen
     for aln in alns:
-        qcoords = aln["qcoords"]
+        qcoords = aln.qcoords
         aln_len = max(qcoords) - min(qcoords) + 1
-        if aln_len < min_length or aln["evalue"] > min_evalue:
+        if aln_len < min_length or aln.evalue > min_evalue:
             continue
         if cur_aln >= qry_len or aln_len + cur_aln >= 1.10 * qry_len:
             break
@@ -345,36 +408,27 @@ def prune_alns(alns, min_length=0, min_evalue=1e-3):
 
 def compute_cov(alns):
 
-    # merge qcoords
-    coords = sorted([a["qcoords"] for a in alns])
+    coords = sorted([a.qcoords for a in alns])
     nr_coords = [coords[0]]
     for start, stop in coords[1:]:
-        # overlapping, update start coord
         if start <= (nr_coords[-1][1] + 1):
             nr_coords[-1][1] = max(nr_coords[-1][1], stop)
-
-        # non-overlapping, append to list
         else:
             nr_coords.append([start, stop])
 
-    # compute query cov
     alen = sum([stop - start + 1 for start, stop in nr_coords])
-    qcov = round(100.0 * alen / alns[0]["qlen"], 2)
+    qcov = round(100.0 * alen / alns[0].qlen, 2)
 
-    # merge tcoords
-    coords = sorted([a["tcoords"] for a in alns])
+    coords = sorted([a.tcoords for a in alns])
     nr_coords = [coords[0]]
     for start, stop in coords[1:]:
-        # overlapping, update start coord
         if start <= (nr_coords[-1][1] + 1):
             nr_coords[-1][1] = max(nr_coords[-1][1], stop)
-        # non-overlapping, append to list
         else:
             nr_coords.append([start, stop])
 
-    # recompute query cov
     alen = sum([stop - start + 1 for start, stop in nr_coords])
-    tcov = round(100.0 * alen / alns[0]["tlen"], 2)
+    tcov = round(100.0 * alen / alns[0].slen, 2)
 
     return qcov, tcov
 
@@ -387,10 +441,10 @@ def ani_calculator(inpath, outpath):
             if alns is not None:
                 alns = prune_alns(alns)
                 if len(alns) > 0:
-                    qname, tname = alns[0]["qname"], alns[0]["tname"]
+                    qname, tname = alns[0].qseqid, alns[0].sseqid
                     ani = round(
-                        sum(a["len"] * a["pid"] for a in alns)
-                        / sum(a["len"] for a in alns),
+                        sum(a.length * a.pident for a in alns)
+                        / sum(a.length for a in alns),
                         2,
                     )
                     qcov, tcov = compute_cov(alns)
@@ -401,38 +455,39 @@ def ani_calculator(inpath, outpath):
 
 def yield_diamond_hits(diamond):
     with open(diamond) as f:
-        try:
-            hits = [next(f).split()]
-        except StopIteration:
+        reader = csv.reader(f, delimiter="\t")
+        first_row = next(reader, None)
+        if first_row is None:
             return
-        for line in f:
-            r = line.split()
-            query = r[0].rsplit("_", 1)[0]
-            last = hits[-1][0].rsplit("_", 1)[0]
+        hits = [DiamondRow.from_csv(first_row)]
+        for r in reader:
+            row = DiamondRow.from_csv(r)
+            query = row.qseqid.rsplit("_", 1)[0]
+            last = hits[-1].qseqid.rsplit("_", 1)[0]
             if query != last:
                 yield last, hits
                 hits = []
-            hits.append(r)
+            hits.append(row)
         if len(hits) > 0:
-            last = hits[-1][0].rsplit("_", 1)[0]
+            last = hits[-1].qseqid.rsplit("_", 1)[0]
             yield last, hits
 
 
 def split_hits(hits):
     target_to_hits = defaultdict(list)
     for hit in hits:
-        tname = hit[1].rsplit("_", 1)[0]
+        tname = hit.sseqid.rsplit("_", 1)[0]
         target_to_hits[tname].append(hit)
     return target_to_hits
 
 
-def best_blast_hits(hits, query_key=0, score_key=-1):
+def best_blast_hits(hits):
     bhits = {}
     for hit in hits:
-        if hit[query_key] not in bhits:
-            bhits[hit[query_key]] = hit
-        elif float(hit[score_key]) > float(bhits[hit[query_key]][score_key]):
-            bhits[hit[query_key]] = hit
+        if hit.qseqid not in bhits:
+            bhits[hit.qseqid] = hit
+        elif hit.bitscore > bhits[hit.qseqid].bitscore:
+            bhits[hit.qseqid] = hit
     return list(bhits.values())
 
 
@@ -447,8 +502,8 @@ def aai_main(inpath, outpath, selfpath):
             target_to_hits = split_hits(hits)
             for tname, thits in target_to_hits.items():
                 bhits = best_blast_hits(thits)
-                aai = mean([float(_[2]) for _ in bhits])
-                score = sum([float(_[-1]) for _ in bhits])
+                aai = mean([_.pident for _ in bhits])
+                score = sum([_.bitscore for _ in bhits])
                 norm = 100 * score / selfaai[qname]
                 row = [
                     qname,

@@ -11,7 +11,7 @@ from collections import OrderedDict
 from typing import TypedDict
 
 from uhgv import prodigal, utility
-from uhgv.utility import get_n_available_cpus
+from uhgv.utility import DiamondRow, get_n_available_cpus
 
 
 class SelfAlignmentStats(TypedDict):
@@ -293,9 +293,10 @@ class ViralClassifier:
                 genome = None
                 with open(path) as fin:
                     for r in csv.reader(fin, delimiter="\t"):
-                        genome = r[0].rsplit("_", 1)[0]
-                        if r[0] == r[1]:
-                            score += float(r[-1])
+                        row = DiamondRow.from_csv(r)
+                        genome = row.qseqid.rsplit("_", 1)[0]
+                        if row.qseqid == row.sseqid:
+                            score += row.bitscore
                 if genome is not None:
                     data[genome]["selfscore"] = score
 
@@ -395,20 +396,20 @@ class ViralClassifier:
             r["class_method"] = None
             r["class_rank"] = None
             r["ani_reference"] = None
-            r["ani_identity"] = None
+            r["ani"] = None
             r["ani_query_af"] = None
             r["ani_target_af"] = None
             r["ani_taxonomy"] = None
             r["aai_reference"] = None
-            r["aai_shared_genes"] = None
-            r["aai_identity"] = None
-            r["aai_score"] = None
+            r["shared_genes"] = None
+            r["aai"] = None
+            r["proteomic_similarity"] = None
             r["aai_taxonomy"] = None
 
             if "blastani" in self.queries[id]:
                 h = self.queries[id]["blastani"]
                 r["ani_reference"] = h["reference"]
-                r["ani_identity"] = h["ani"]
+                r["ani"] = h["ani"]
                 r["ani_query_af"] = h["qcov"]
                 r["ani_target_af"] = h["tcov"]
                 r["ani_taxonomy"] = self.ref_genomes[h["reference"]]["taxonomy"]
@@ -416,23 +417,23 @@ class ViralClassifier:
             if "blastaai" in self.queries[id]:
                 h = self.queries[id]["blastaai"]
                 r["aai_reference"] = h["reference"]
-                r["aai_shared_genes"] = int(h["hits"])
-                r["aai_identity"] = float(h["aai"])
-                r["aai_score"] = float(h["norm_score"])
+                r["shared_genes"] = int(h["hits"])
+                r["aai"] = float(h["aai"])
+                r["proteomic_similarity"] = float(h["norm_score"])
                 r["aai_taxonomy"] = self.ref_genomes[h["reference"]]["taxonomy"]
 
             classified_by_ani = False
             ani_reference = r["ani_reference"]
             if ani_reference is not None:
-                ani_identity = r["ani_identity"]
+                ani = r["ani"]
                 ani_query_af = r["ani_query_af"]
                 ani_target_af = r["ani_target_af"]
                 ani_taxonomy = r["ani_taxonomy"]
-                assert ani_identity is not None
+                assert ani is not None
                 assert ani_query_af is not None
                 assert ani_target_af is not None
                 assert ani_taxonomy is not None
-                if float(ani_identity) >= 95 and (
+                if float(ani) >= 95 and (
                     float(ani_query_af) >= 85 or float(ani_target_af) >= 85
                 ):
                     while ani_taxonomy.endswith(";Unclassified"):
@@ -446,7 +447,7 @@ class ViralClassifier:
 
             if not classified_by_ani and r["aai_reference"] is not None:
                 r["taxon_lineage"] = assign_aai_taxonomy(
-                    r["aai_taxonomy"], r["aai_score"]
+                    r["aai_taxonomy"], r["proteomic_similarity"]
                 )
                 if r["taxon_lineage"]:
                     r["class_method"] = "protein"
@@ -478,14 +479,14 @@ class ViralClassifier:
             "class_method",
             "class_rank",
             "ani_reference",
-            "ani_identity",
+            "ani",
             "ani_query_af",
             "ani_target_af",
             "ani_taxonomy",
             "aai_reference",
-            "aai_shared_genes",
-            "aai_identity",
-            "aai_score",
+            "shared_genes",
+            "aai",
+            "proteomic_similarity",
             "aai_taxonomy",
         ]
         with open(self.paths["classify_summary"], "w") as out:
