@@ -1,29 +1,120 @@
+from typing import Any
+
 import rich_click as click
+from rich.containers import Renderables
+from rich.rule import Rule
+from rich.text import Text
+from rich_click.rich_command import RichCommand, RichGroup
+from rich_click.rich_context import RichContext
+from rich_click.rich_help_formatter import RichHelpFormatter
+from rich_click.rich_panel import RichOptionPanel
 
 import uhgv
-from uhgv.modules import classify as classify_module
-from uhgv.modules import download as download_module
+from uhgv.subcommands import classify as classify_module
+from uhgv.subcommands import download_database as download_module
 from uhgv.utility import get_n_available_cpus
 
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
-click.rich_click.THEME = "modern"
-click.rich_click.USE_RICH_MARKUP = True
-click.rich_click.SHOW_METAVARS_COLUMN = False
-click.rich_click.APPEND_METAVARS_HELP = True
-click.rich_click.MAX_WIDTH = None
-
-click.rich_click.COMMAND_GROUPS = {
-    "uhgv": [
-        {
-            "name": "Commands",
-            "commands": ["download", "classify"],
-        },
-    ]
+UHGV_HELP_CONFIG: dict[str, Any] = {
+    "theme": "modern",
+    "text_markup": "rich",
+    "max_width": None,
+    "padding_usage": (0, 0, 1, 0),
+    "padding_helptext": (0, 0, 1, 0),
+    "style_command_help": "italic",
+    "options_table_column_types": ["opt_short", "opt_long", "help"],
+    "options_table_help_sections": [
+        "required",
+        "help",
+        "envvar",
+        "default",
+        "deprecated",
+        "metavar",
+    ],
+    "command_groups": {
+        "uhgv": [
+            {
+                "name": "Commands",
+                "commands": ["download-database", "classify"],
+            },
+        ]
+    },
 }
 
+uhgv_rich_config = click.rich_config(UHGV_HELP_CONFIG)
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
-@click.group(context_settings=CONTEXT_SETTINGS)
+
+class FlushPanel:
+    """Panel-like renderable without Rich's invisible border gutter."""
+
+    def __init__(
+        self,
+        renderable: Any,
+        *,
+        title: Any = None,
+        border_style: Any = "",
+        **_: Any,
+    ):
+        self.renderable = renderable
+        self.title = title
+        self.border_style = border_style
+
+    def __rich_console__(self, console: Any, options: Any):
+        renderables: list[Any] = []
+        if self.title is not None:
+            renderables.append(self.title)
+        renderables.extend(
+            [
+                Rule(style=self.border_style or ""),
+                self.renderable,
+                Text(""),
+            ]
+        )
+        yield from console.render(Renderables(renderables), options)
+
+
+class FlushOptionPanel(RichOptionPanel):
+    """Render Arguments and Options flush with the left edge of the help output."""
+
+    panel_class = FlushPanel
+
+    def get_table(self, command: Any, ctx: Any, formatter: RichHelpFormatter) -> Any:
+        if self.name == formatter.config.arguments_panel_title:
+            help_sections = formatter.config.options_table_help_sections
+            formatter.config.options_table_help_sections = [
+                section for section in help_sections if section != "required"
+            ]
+            try:
+                table = super().get_table(command, ctx, formatter)
+            finally:
+                formatter.config.options_table_help_sections = help_sections
+        else:
+            table = super().get_table(command, ctx, formatter)
+
+        table.show_edge = False
+        return table
+
+
+class UHGVHelpFormatter(RichHelpFormatter):
+    option_panel_class = FlushOptionPanel
+
+
+class UHGVRichContext(RichContext):
+    formatter_class = UHGVHelpFormatter
+
+
+class UHGVRichCommand(RichCommand):
+    context_class = UHGVRichContext
+
+
+class UHGVRichGroup(RichGroup):
+    context_class = UHGVRichContext
+    command_class = UHGVRichCommand
+
+
+@click.group(cls=UHGVRichGroup, context_settings=CONTEXT_SETTINGS)
 @click.version_option(version=uhgv.__version__, prog_name="UHGV")
+@uhgv_rich_config
 def cli():
     """
     uhgv-classifier: classification of viral genomes into UHGV taxa-like clusters.
@@ -50,9 +141,10 @@ def cli():
     show_default=True,
     help="Suppress logging messages.",
 )
-def download(output, keep, quiet):
+def download_database(output, keep, quiet):
     """
-    Download the UHGV genome database required for the [yellow]classify[/yellow] module.
+    Download the reference database required for using the
+    [yellow]classify[/yellow] module.
     """
     download_module.main(output=output, quiet=quiet, keep=keep)
 

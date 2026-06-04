@@ -18,13 +18,13 @@ Install program using git and pip (add `--user` if you don't have root access):
 Install external dependencies using conda:
 `conda install -c bioconda pyrodigal-gv diamond blast -y`
 
-View available modules:
+View available subcommands:
 `uhgv -h`
 
 Download and unpack the latest database:
-`uhgv download .`
+`uhgv download-database .`
 
-> UHGV-tools: download<br>
+> UHGV-tools: download-database<br>
 > [1/5] Checking latest version of database...<br>
 > [2/5] Downloading 'uhgv-db'...<br>
 > [3/5] Extracting 'uhgv-db'...<br>

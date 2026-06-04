@@ -1,7 +1,7 @@
 from importlib.metadata import version
 
-from uhgv.modules import classify, download
+from uhgv.subcommands import classify, download_database
 
-__all__ = ["classify", "download", "__version__"]
+__all__ = ["classify", "download_database", "__version__"]
 
 __version__ = version("uhgv")

@@ -509,11 +509,6 @@ class ViralClassifier:
                 out.write(self._format_row(query["record"], fields) + "\n")
 
 
-######################
-##      Main
-######################
-
-
 def main(
     input,
     outdir,
@@ -539,16 +534,16 @@ def main(
     console.log("Reading database sequences")
     vclass.load_refdb()
 
-    with console.status("Calculating nucleotide similarity with BLASTN…"):
+    with console.status("Computing nucleotide similarity with BLASTN…"):
         vclass.blastani()
 
     with console.status("Predicting genes with pyrodigal-gv…"):
         vclass.call_genes()
 
-    with console.status("Computing self-protein alignments…"):
+    with console.status("Computing protein self-alignments…"):
         vclass.self_protein_alignment()
 
-    with console.status("Searching database with DIAMOND…"):
+    with console.status("Searching protein database with DIAMOND…"):
         vclass.db_protein_alignment()
 
     with console.status("Computing AAI scores…"):
