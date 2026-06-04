@@ -54,7 +54,7 @@ def download(output, keep, quiet):
     """
     Download the UHGV genome database required for the [yellow]classify[/yellow] module.
     """
-    download_module.main(destination=output, quiet=quiet, keep=keep)
+    download_module.main(output=output, quiet=quiet, keep=keep)
 
 
 @cli.command(context_settings=CONTEXT_SETTINGS)

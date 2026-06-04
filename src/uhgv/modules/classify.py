@@ -389,10 +389,7 @@ class ViralClassifier:
             r = {}
             r["genome_id"] = id
             r["genome_length"] = self.queries[id]["length"]
-            ### temp fix
-            r["genome_num_genes"] = (
-                self.queries[id]["genes"] if "genes" in self.queries[id] else "NA"
-            )
+            r["genome_num_genes"] = self.queries[id].get("genes")
             r["taxon_id"] = None
             r["taxon_lineage"] = None
             r["class_method"] = None
@@ -467,6 +464,11 @@ class ViralClassifier:
 
             self.queries[id]["record"] = r
 
+    @staticmethod
+    def _format_row(record, fields):
+        vals = (record.get(f) for f in fields)
+        return "\t".join("NA" if v is None else str(v) for v in vals)
+
     def write_results(self):
         fields = [
             "genome_id",
@@ -489,10 +491,7 @@ class ViralClassifier:
         with open(self.paths["classify_summary"], "w") as out:
             out.write("\t".join(fields) + "\n")
             for query in self.queries.values():
-                rec = [
-                    query["record"][f] if f in query["record"] else "NA" for f in fields
-                ]
-                out.write("\t".join([str(_) for _ in rec]) + "\n")
+                out.write(self._format_row(query["record"], fields) + "\n")
 
         fields = [
             "genome_id",
@@ -507,10 +506,7 @@ class ViralClassifier:
         with open(self.paths["taxon_info"], "w") as out:
             out.write("\t".join(fields) + "\n")
             for query in self.queries.values():
-                rec = [
-                    query["record"][f] if f in query["record"] else "NA" for f in fields
-                ]
-                out.write("\t".join([str(_) for _ in rec]) + "\n")
+                out.write(self._format_row(query["record"], fields) + "\n")
 
 
 ######################

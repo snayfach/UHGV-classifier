@@ -45,3 +45,6 @@ uhgv = { path = ".", editable = true }
 [tool.pixi.dependencies]
 blast = ">=2.16,<3"
 diamond = ">=2.2,<3"
+
+[tool.ruff.lint]
+extend-select = ["I"]

@@ -203,22 +203,22 @@ def split_dmnd(inpath, outdir, num_splits, ext=""):
 
     last_id = None
     with open(inpath) as infile:
-        for l in infile:
-            last_id = l.split()[0].rsplit("_", 1)[0]
+        for line in infile:
+            last_id = line.split()[0].rsplit("_", 1)[0]
 
     split_num = 1
     cursize = 0
     outfile = open(os.path.join(outdir, str(split_num)) + ext, "w")
     with open(inpath) as infile:
-        for l in infile:
-            cur_id = l.split()[0].rsplit("_", 1)[0]
+        for line in infile:
+            cur_id = line.split()[0].rsplit("_", 1)[0]
             if cursize > split_size and cur_id != last_id:
                 split_num += 1
                 cursize = 0
                 outfile.close()
                 outfile = open(os.path.join(outdir, str(split_num)) + ext, "w")
-            outfile.write(l)
-            cursize += len(l)
+            outfile.write(line)
+            cursize += len(line)
             last_id = cur_id
     outfile.close()
 
@@ -405,8 +405,8 @@ def yield_diamond_hits(diamond):
             hits = [next(f).split()]
         except StopIteration:
             return
-        for l in f:
-            r = l.split()
+        for line in f:
+            r = line.split()
             query = r[0].rsplit("_", 1)[0]
             last = hits[-1][0].rsplit("_", 1)[0]
             if query != last:
