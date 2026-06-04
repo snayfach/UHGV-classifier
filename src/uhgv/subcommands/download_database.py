@@ -82,21 +82,22 @@ class DatabaseDownloader:
             msg += f"See log for details: {logpath}"
             sys.exit(msg)
 
-    def diamond_makedb(self):
+    def blastp_makedb(self):
         self.dbdir = os.path.join(self.output, self.filename.replace(".tar.gz", ""))
         logpath = f"{self.dbdir}/proteins.log"
         cmd = [
-            "diamond",
-            "makedb",
-            "--in",
+            "makeblastdb",
+            "-in",
             f"{self.dbdir}/proteins.faa",
-            "--db",
+            "-out",
             f"{self.dbdir}/proteins",
+            "-dbtype",
+            "prot",
         ]
         with open(logpath, "w") as log:
             result = sp.run(cmd, stdout=sp.DEVNULL, stderr=log)
         if result.returncode != 0:
-            msg = "\nError: DIAMOND database failed to build\n"
+            msg = "\nError: BLASTP database failed to build\n"
             msg += f"See log for details: {logpath}"
             sys.exit(msg)
 
@@ -120,8 +121,8 @@ def main(output, quiet=False, keep=False):
     console.log("Building BLASTN database…")
     db.blastn_makedb()
 
-    console.log("Building DIAMOND database…")
-    db.diamond_makedb()
+    console.log("Building BLASTP database…")
+    db.blastp_makedb()
 
     if not keep:
         os.remove(db.output_file)

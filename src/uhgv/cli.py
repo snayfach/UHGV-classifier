@@ -143,8 +143,8 @@ def cli():
 )
 def download_database(output, keep, quiet):
     """
-    Download the reference database required for using the
-    [yellow]classify[/yellow] module.
+    Download the reference database required for using the [cyan]classify[/cyan]
+    subcommand.
     """
     download_module.main(output=output, quiet=quiet, keep=keep)
 

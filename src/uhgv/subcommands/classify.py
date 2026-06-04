@@ -113,7 +113,7 @@ class ViralClassifier:
         files = [
             "genomes.fna",
             "proteins.faa",
-            "proteins.dmnd",
+            "proteins.phr",
             "genome_taxonomy.tsv",
         ]
         for file in files:
@@ -335,7 +335,7 @@ class ViralClassifier:
             "--threads",
             str(self.threads),
             "--db",
-            f"{self.paths['dbdir']}/proteins.dmnd",
+            f"{self.paths['dbdir']}/proteins",
             "--outfmt",
             "6",
         ]
