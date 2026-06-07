@@ -78,15 +78,14 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/15/12/7f9edf5a5a547ce0421e8f120c157b3602eabb12147ffea95eefbd55a94e/archspec-0.2.6-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6d/97/a87901aef6b7e7e4a34c6dd6cc17dca8594a592ef9d9dd765fca2b7facf7/rich_click-1.9.8-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/84/98/06ba4db905613fa24d227bc81219b7b2e6d48f803eac407d86f2ca54991d/taxopy-0.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/90/fb/96aee99651e8deae8bbd1f8a3d49e7c3d7bd84238e572c96706be1d31a15/pyrodigal-3.7.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b5/70/5d8df3b09e25bce090399cf48e452d25c935ab72dad19406c77f4e828045/psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/c7/0d/67e5b4109ea4a837e80daa87c2c696711955e40449a97e8926672534def2/click-8.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d6/8f/e78b92bc836a7b50a3497ee655983561dec4ac2df06136f0c55e59a00144/pyrodigal_gv-0.3.2-py2.py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/f3/eb/ebffaa97dc55502df69584a8f0dcf07f69a3e0b3e2323670a2722db9aa39/numpy-2.4.6-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/f5/26/9cade51cffba81b3c8dc314f146eb71c46c491d8092fef0f5bc4ccf3a66d/biopython-1.87-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       osx-arm64:
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-archive-tar-3.10-pl5321hdfd78af_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-io-zlib-1.15-pl5321hdfd78af_1.tar.bz2
@@ -148,12 +147,11 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hbf9d68e_6.conda
       - pypi: .
       - pypi: https://files.pythonhosted.org/packages/15/12/7f9edf5a5a547ce0421e8f120c157b3602eabb12147ffea95eefbd55a94e/archspec-0.2.6-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/26/3f/1ed27b0991697993c8f20bcc6b9b55a720993213e4a1aa4803b21366e11b/biopython-1.87-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/3d/eb/1ba975103e7d37a2b50179c31f2ab3de663dd6e7cc4a354219fad744b2a9/pyrodigal-3.7.1-cp314-cp314-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/6d/97/a87901aef6b7e7e4a34c6dd6cc17dca8594a592ef9d9dd765fca2b7facf7/rich_click-1.9.8-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/80/c4/f5af4c1ca8c1eeb2e92ccca14ce8effdeec651d5ab6053c589b074eda6e1/psutil-7.2.2-cp36-abi3-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/8e/62/764ce66fa4147ae6d73071a3abf804ffe606f174618697c571acdf26a7c9/numpy-2.4.6-cp314-cp314-macosx_11_0_arm64.whl
+      - pypi: https://files.pythonhosted.org/packages/84/98/06ba4db905613fa24d227bc81219b7b2e6d48f803eac407d86f2ca54991d/taxopy-0.14.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/c7/0d/67e5b4109ea4a837e80daa87c2c696711955e40449a97e8926672534def2/click-8.4.1-py3-none-any.whl
@@ -1445,25 +1443,18 @@ packages:
 - pypi: .
   name: uhgv
   requires_dist:
-  - biopython
   - click>=8.4.1
   - psutil
   - pyrodigal-gv>=0.3.1
   - rich>=15.0.0
   - rich-click>=1.9.8
+  - taxopy>=0.14.0
   requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/15/12/7f9edf5a5a547ce0421e8f120c157b3602eabb12147ffea95eefbd55a94e/archspec-0.2.6-py3-none-any.whl
   name: archspec
   version: 0.2.6
   sha256: 22463371fe8e9fa92fa144bf320cb445373a99f2ca6a5914c890e0c0b7816f8f
   requires_python: '!=2.7.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=3.6'
-- pypi: https://files.pythonhosted.org/packages/26/3f/1ed27b0991697993c8f20bcc6b9b55a720993213e4a1aa4803b21366e11b/biopython-1.87-cp314-cp314-macosx_11_0_arm64.whl
-  name: biopython
-  version: '1.87'
-  sha256: db73fe16aa2b20677ac86d1997612acb0aa1a3720bc899f65d2bce5583208e1b
-  requires_dist:
-  - numpy
-  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/3d/eb/1ba975103e7d37a2b50179c31f2ab3de663dd6e7cc4a354219fad744b2a9/pyrodigal-3.7.1-cp314-cp314-macosx_11_0_arm64.whl
   name: pyrodigal
   version: 3.7.1
@@ -1563,11 +1554,13 @@ packages:
   - markdown-it-py>=2.2.0
   - pygments>=2.13.0,<3.0.0
   requires_python: '>=3.9.0'
-- pypi: https://files.pythonhosted.org/packages/8e/62/764ce66fa4147ae6d73071a3abf804ffe606f174618697c571acdf26a7c9/numpy-2.4.6-cp314-cp314-macosx_11_0_arm64.whl
-  name: numpy
-  version: 2.4.6
-  sha256: 38efbc8de75c7a0fc1ac190162d892787f3f47b57cc291231aafee36b80982b7
-  requires_python: '>=3.11'
+- pypi: https://files.pythonhosted.org/packages/84/98/06ba4db905613fa24d227bc81219b7b2e6d48f803eac407d86f2ca54991d/taxopy-0.14.0-py3-none-any.whl
+  name: taxopy
+  version: 0.14.0
+  sha256: 1dabbd091d0be081462d03d57ad0143c73273897ec2e2dfba53758bd24e65ee5
+  requires_dist:
+  - rapidfuzz ; extra == 'fuzzy-matching'
+  requires_python: '>=3.5'
 - pypi: https://files.pythonhosted.org/packages/90/fb/96aee99651e8deae8bbd1f8a3d49e7c3d7bd84238e572c96706be1d31a15/pyrodigal-3.7.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
   name: pyrodigal
   version: 3.7.1
@@ -1677,11 +1670,6 @@ packages:
   - pyrodigal!=3.5.0,~=3.5
   - importlib-resources ; python_full_version < '3.9'
   requires_python: '>=3.6'
-- pypi: https://files.pythonhosted.org/packages/f3/eb/ebffaa97dc55502df69584a8f0dcf07f69a3e0b3e2323670a2722db9aa39/numpy-2.4.6-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
-  name: numpy
-  version: 2.4.6
-  sha256: a2c306dea656c12c68f51f4cea133cbe78ca7435eb28c735eac1d3ebe73be6e8
-  requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl
   name: pygments
   version: 2.20.0
@@ -1689,10 +1677,3 @@ packages:
   requires_dist:
   - colorama>=0.4.6 ; extra == 'windows-terminal'
   requires_python: '>=3.9'
-- pypi: https://files.pythonhosted.org/packages/f5/26/9cade51cffba81b3c8dc314f146eb71c46c491d8092fef0f5bc4ccf3a66d/biopython-1.87-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
-  name: biopython
-  version: '1.87'
-  sha256: ff28a6f31630b3c9f52903478a2ed9dd894b07c1998e40eaeefbeefac20f2d0f
-  requires_dist:
-  - numpy
-  requires_python: '>=3.10'

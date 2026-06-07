@@ -10,6 +10,8 @@ import time
 from collections import OrderedDict
 from typing import TypedDict
 
+import taxopy
+
 from uhgv import prodigal, utility
 from uhgv.utility import DiamondRow, get_n_available_cpus
 
@@ -40,32 +42,6 @@ def blast_to_tophits(
         elif r[scorekey] > tophits[r[querykey]][scorekey]:
             tophits[r[querykey]] = r
     return tophits
-
-
-def assign_aai_taxonomy(taxonomy, score):
-    cutoffs = {
-        "species": 95.0,
-        "subgenus": 80.0,
-        "genus": 65.0,
-        "subfamily": 32.0,
-        "family": 5.5,
-    }
-    prefix2rank = {
-        "vOTU": "species",
-        "vSUBGEN": "subgenus",
-        "vGENUS": "genus",
-        "vSUBFAM": "subfamily",
-        "vFAM": "family",
-    }
-    taxa = taxonomy.split(";")
-    for i in range(2, len(taxa) + 1):
-        lineage = taxa[: -i + 1]
-        prefix = taxa[-i].split("-")[0]
-        if prefix != "Unclassified":
-            rank = prefix2rank[prefix]
-            if score >= cutoffs[rank]:
-                return ";".join(lineage)
-    return None
 
 
 class ViralClassifier:
@@ -114,7 +90,9 @@ class ViralClassifier:
             "genomes.fna",
             "proteins.faa",
             "proteins.phr",
-            "genome_taxonomy.tsv",
+            "uhgv_taxdump/nodes.dmp",
+            "uhgv_taxdump/names.dmp",
+            "uhgv_taxdump/taxid.map",
         ]
         for file in files:
             if not os.path.exists(os.path.join(self.paths["dbdir"], file)):
@@ -141,20 +119,18 @@ class ViralClassifier:
             self.queries[r.accession]["length"] = len(r)
 
     def load_refdb(self):
-        self.ref_genomes = {}
-        path = os.path.join(self.paths["dbdir"], "genome_taxonomy.tsv")
-        for r in csv.DictReader(open(path), delimiter="\t"):
-            r["taxonomy"] = ";".join(
-                [
-                    r["family_vc"],
-                    r["subfamily_vc"],
-                    r["genus_vc"],
-                    r["subgenus_vc"],
-                    r["species_vc"],
-                ]
-            )
-            r["taxonomy"] = r["taxonomy"].replace("NULL", "Unclassified")
-            self.ref_genomes[r["genome_id"]] = r
+        self.genome_to_taxid = {}
+        map_path = os.path.join(self.paths["dbdir"], "uhgv_taxdump", "taxid.map")
+        for line in open(map_path):
+            genome_id, taxid = line.strip().split("\t")
+            self.genome_to_taxid[genome_id] = int(taxid)
+        self.ref_genomes = {
+            gid: {"taxid": tid} for gid, tid in self.genome_to_taxid.items()
+        }
+        self.taxdb = taxopy.TaxDb(
+            nodes_dmp=os.path.join(self.paths["dbdir"], "uhgv_taxdump", "nodes.dmp"),
+            names_dmp=os.path.join(self.paths["dbdir"], "uhgv_taxdump", "names.dmp"),
+        )
         self.ref_clusters = {}
         path = os.path.join(self.paths["dbdir"], "viral_cluster_info.tsv")
         for r in csv.DictReader(open(path), delimiter="\t"):
@@ -379,6 +355,36 @@ class ViralClassifier:
         shutil.rmtree(self.paths["dmnddir"])
         shutil.rmtree(self.paths["aaidir"])
 
+    def get_lineage_string(self, taxid, up_to_rank=None):
+        taxon = taxopy.Taxon(taxid, self.taxdb)
+        rank_to_name = dict(zip(taxon.rank_lineage, taxon.name_lineage))
+        rank_order = ["vfam", "vsubfam", "vgenus", "vsubgen", "votu"]
+        parts = []
+        for rank in rank_order:
+            if rank in taxon.rank_taxid_dictionary:
+                parts.append(rank_to_name[rank])
+            else:
+                parts.append("Unclassified")
+            if rank == up_to_rank:
+                break
+        return ";".join(parts)
+
+    def assign_aai_taxonomy(self, taxid, score):
+        cutoffs = {
+            "votu": 95.0,
+            "vsubgen": 80.0,
+            "vgenus": 65.0,
+            "vsubfam": 32.0,
+            "vfam": 5.5,
+        }
+        taxon = taxopy.Taxon(taxid, self.taxdb)
+        for rank, _ in taxon.ranked_name_lineage:
+            if rank in ("no rank", "votu"):
+                continue
+            if score >= cutoffs[rank]:
+                return self.get_lineage_string(taxid, up_to_rank=rank)
+        return None
+
     def find_top_hits(self):
         for type in ["blastani", "blastaai"]:
             tophits = blast_to_tophits(self.paths[type], refs=self.ref_genomes)
@@ -412,7 +418,9 @@ class ViralClassifier:
                 r["ani"] = h["ani"]
                 r["ani_query_af"] = h["qcov"]
                 r["ani_target_af"] = h["tcov"]
-                r["ani_taxonomy"] = self.ref_genomes[h["reference"]]["taxonomy"]
+                r["ani_taxonomy"] = self.get_lineage_string(
+                    self.ref_genomes[h["reference"]]["taxid"]
+                )
 
             if "blastaai" in self.queries[id]:
                 h = self.queries[id]["blastaai"]
@@ -420,7 +428,9 @@ class ViralClassifier:
                 r["shared_genes"] = int(h["hits"])
                 r["aai"] = float(h["aai"])
                 r["proteomic_similarity"] = float(h["norm_score"])
-                r["aai_taxonomy"] = self.ref_genomes[h["reference"]]["taxonomy"]
+                r["aai_taxonomy"] = self.get_lineage_string(
+                    self.ref_genomes[h["reference"]]["taxid"]
+                )
 
             classified_by_ani = False
             ani_reference = r["ani_reference"]
@@ -436,18 +446,21 @@ class ViralClassifier:
                 if float(ani) >= 95 and (
                     float(ani_query_af) >= 85 or float(ani_target_af) >= 85
                 ):
-                    while ani_taxonomy.endswith(";Unclassified"):
-                        ani_taxonomy = ani_taxonomy.rsplit(";Unclassified", 1)[0]
-                    r["ani_taxonomy"] = ani_taxonomy
-                    r["taxon_lineage"] = ani_taxonomy
-                    r["taxon_id"] = ani_taxonomy.split(";")[-1]
-                    r["class_method"] = "nucleotide"
-                    r["class_rank"] = "species"
-                    classified_by_ani = True
+                    ani_taxid = self.ref_genomes[ani_reference]["taxid"]
+                    if ani_taxid != 1:
+                        while ani_taxonomy.endswith(";Unclassified"):
+                            ani_taxonomy = ani_taxonomy.rsplit(";Unclassified", 1)[0]
+                        r["ani_taxonomy"] = ani_taxonomy
+                        r["taxon_lineage"] = ani_taxonomy
+                        r["taxon_id"] = ani_taxonomy.split(";")[-1]
+                        r["class_method"] = "nucleotide"
+                        r["class_rank"] = "species"
+                        classified_by_ani = True
 
             if not classified_by_ani and r["aai_reference"] is not None:
-                r["taxon_lineage"] = assign_aai_taxonomy(
-                    r["aai_taxonomy"], r["proteomic_similarity"]
+                aai_taxid = self.ref_genomes[r["aai_reference"]]["taxid"]
+                r["taxon_lineage"] = self.assign_aai_taxonomy(
+                    aai_taxid, r["proteomic_similarity"]
                 )
                 if r["taxon_lineage"]:
                     r["class_method"] = "protein"
