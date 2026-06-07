@@ -82,28 +82,27 @@ Here are field definitions and example values for `classify_summary.tsv`:
 | ----------- | ----------- |----------- |
 | genome_id | user genome identifier | 0008\_k141_99927 |
 | genome_length | length in bp | 96989 |
-| genome\_num_genes | count of CDS | 106 |
-| taxon_id | UHGV taxon identifier | vSUBGEN-22354 |
-| class_method | nucleotide or protein based classification | protein |
-| class_rank | lowest classified rank | subgenus |
-| ani_reference | nearest reference based on ANI | UHGV-0030436 |
-| ani | nucleotide identity | 93.65 |
-| ani\_query_af | % of query covered | 86.6 |
-| ani\_target_af | % of target covered | 83.58 |
-| ani_taxonomy | taxonomy of reference genome | vFAM-00050;vSUBFAM-00057;vGENUS-00180;vSUBGEN-22354;vOTU-000988 |
-| aai_reference | nearest reference based on AAI | UHGV-0030436 |
-| shared_genes | number of proteins aligned | 93 |
-| aai | amino acid identity | 89.33 |
-| proteomic_similarity | normalized, cumulative bitscore | 82.57 |
-| aai_taxonomy | taxonomy of reference genome | vFAM-00050;vSUBFAM-00057;vGENUS-00180;vSUBGEN-22354;vOTU-000988 |
+| genome_n_genes | count of CDS | 106 |
+| assigned_taxon | UHGV taxon identifier | vGENUS-00180 |
+| assigned_lineage | consensus lineage assigned to the query | vFAM-00050;vSUBFAM-00057;vGENUS-00180 |
+| assignment_method | nucleotide or protein based classification | protein |
+| references_for_assignment | reference genomes used for assignment | UHGV-0030436;UHGV-0031631 |
+| top_nucleotide_hit | nearest reference based on ANI | UHGV-0030436 |
+| top_nucleotide_hit_ani | nucleotide identity | 93.65 |
+| top_nucleotide_hit_query_af | % of query covered | 86.6 |
+| top_nucleotide_hit_target_af | % of target covered | 83.58 |
+| top_protein_hit | nearest reference based on AAI | UHGV-0030436 |
+| top_protein_hit_shared_genes | number of proteins aligned | 93 |
+| top_protein_hit_aai | amino acid identity | 89.33 |
+| top_protein_hit_proteomic_similarity | normalized, cumulative bitscore | 82.57 |
 
 Here field definitions and example values for `taxon_info.tsv`:
 
 | Field      | Description | Example |
 | ----------- | ----------- |----------- |
 | genome_id | user genome identifier | 0008\_k141_99927 |
-| taxon_id | UHGV taxon identifier | vSUBGEN-22354 |
-| taxon\_lineage | UHGV taxon lineage | vFAM-00050;vSUBFAM-00057;vGENUS-00180;vSUBGEN-22354 |
+| assigned_taxon | UHGV taxon identifier | vGENUS-00180 |
+| assigned_lineage | UHGV taxon lineage | vFAM-00050;vSUBFAM-00057;vGENUS-00180 |
 | host\_lineage | Consensus GTDB host lineage | d\_\_Bacteria;p\_\_Bacteroidota;c\_\_Bacteroidia;o\_\_Bacteroidales;f\_\_Bacteroidaceae;g\_\_Prevotella (100.0) |
 | ictv\_lineage | Consensus ICTV taxon lineage | r\_\_Duplodnaviria;k\_\_Heunggongvirae;p\_\_Uroviricota;c\_\_Caudoviricetes;o\_\_Crassvirales;f\_\_Beta-crassviridae (100.0) |
 | lifestyle | Consensus virus lifestyle | virulent (100.0) |

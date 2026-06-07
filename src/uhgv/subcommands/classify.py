@@ -7,10 +7,11 @@ import shutil
 import subprocess as sp
 import sys
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import TypedDict
 
 import taxopy
+from taxopy.exceptions import MajorityVoteError
 
 from uhgv import prodigal, utility
 from uhgv.utility import DiamondRow, get_n_available_cpus
@@ -33,14 +34,15 @@ def blast_to_tophits(
         tophits: dict mapping each query to highest scoring record
     """
     tophits = {}
-    for r in csv.DictReader(open(inpath), delimiter="\t"):
-        r[scorekey] = float(r[scorekey])
-        if refs and r[refkey] not in refs:
-            continue
-        elif r[querykey] not in tophits:
-            tophits[r[querykey]] = r
-        elif r[scorekey] > tophits[r[querykey]][scorekey]:
-            tophits[r[querykey]] = r
+    with open(inpath) as fi:
+        for r in csv.DictReader(fi, delimiter="\t"):
+            r[scorekey] = float(r[scorekey])
+            if refs and r[refkey] not in refs:
+                continue
+            elif r[querykey] not in tophits:
+                tophits[r[querykey]] = r
+            elif r[scorekey] > tophits[r[querykey]][scorekey]:
+                tophits[r[querykey]] = r
     return tophits
 
 
@@ -92,7 +94,7 @@ class ViralClassifier:
             "proteins.phr",
             "uhgv_taxdump/nodes.dmp",
             "uhgv_taxdump/names.dmp",
-            "uhgv_taxdump/taxid.map",
+            "genome_metadata.tsv",
         ]
         for file in files:
             if not os.path.exists(os.path.join(self.paths["dbdir"], file)):
@@ -120,10 +122,10 @@ class ViralClassifier:
 
     def load_refdb(self):
         self.genome_to_taxid = {}
-        map_path = os.path.join(self.paths["dbdir"], "uhgv_taxdump", "taxid.map")
-        for line in open(map_path):
-            genome_id, taxid = line.strip().split("\t")
-            self.genome_to_taxid[genome_id] = int(taxid)
+        map_path = os.path.join(self.paths["dbdir"], "genome_metadata.tsv")
+        with open(map_path) as fi:
+            for r in csv.DictReader(fi, delimiter="\t"):
+                self.genome_to_taxid[r["genome_id"]] = int(r["taxid"])
         self.ref_genomes = {
             gid: {"taxid": tid} for gid, tid in self.genome_to_taxid.items()
         }
@@ -133,9 +135,10 @@ class ViralClassifier:
         )
         self.ref_clusters = {}
         path = os.path.join(self.paths["dbdir"], "viral_cluster_info.tsv")
-        for r in csv.DictReader(open(path), delimiter="\t"):
-            self.ref_clusters[r["taxon_id"]] = r
-            del self.ref_clusters[r["taxon_id"]]["taxon_id"]
+        with open(path) as fi:
+            for r in csv.DictReader(fi, delimiter="\t"):
+                self.ref_clusters[r["taxon_id"]] = r
+                del self.ref_clusters[r["taxon_id"]]["taxon_id"]
 
     def blastani(self):
         if os.path.exists(self.paths["blastani"]):
@@ -178,8 +181,9 @@ class ViralClassifier:
             for file in os.listdir(self.paths["blastdir"]):
                 if file.endswith(".tsv"):
                     inpath = os.path.join(self.paths["blastdir"], file)
-                    for line in open(inpath):
-                        out.write(line)
+                    with open(inpath) as fi:
+                        for line in fi:
+                            out.write(line)
 
         utility.ani_calculator(self.paths["blastn"], self.paths["blastani"])
 
@@ -267,8 +271,8 @@ class ViralClassifier:
                 path = os.path.join(selfaln_dir, file)
                 score = 0.0
                 genome = None
-                with open(path) as fin:
-                    for r in csv.reader(fin, delimiter="\t"):
+                with open(path) as fi:
+                    for r in csv.reader(fi, delimiter="\t"):
                         row = DiamondRow.from_csv(r)
                         genome = row.qseqid.rsplit("_", 1)[0]
                         if row.qseqid == row.sseqid:
@@ -276,7 +280,6 @@ class ViralClassifier:
                 if genome is not None:
                     data[genome]["selfscore"] = score
 
-            # write results
             with open(self.paths["selfaai"], "w") as out:
                 header = ["genome_id", "genes", "selfscore"]
                 out.write("\t".join(header) + "\n")
@@ -284,12 +287,12 @@ class ViralClassifier:
                     rec = [id, data[id]["genes"], data[id]["selfscore"]]
                     out.write("\t".join([str(_) for _ in rec]) + "\n")
 
-            # cleanup
             shutil.rmtree(selfaln_dir)
 
         # update queries
-        for r in csv.DictReader(open(self.paths["selfaai"]), delimiter="\t"):
-            self.queries[r["genome_id"]].update(r)
+        with open(self.paths["selfaai"]) as fi:
+            for r in csv.DictReader(fi, delimiter="\t"):
+                self.queries[r["genome_id"]].update(r)
 
     def db_protein_alignment(self):
         if os.path.exists(self.paths["diamond"]):
@@ -341,37 +344,38 @@ class ViralClassifier:
 
         with open(self.paths["blastaai"], "w") as out:
             for file in os.listdir(self.paths["aaidir"]):
-                handle = open(os.path.join(self.paths["aaidir"], file))
-                out.write(next(handle))
+                with open(os.path.join(self.paths["aaidir"], file)) as handle:
+                    out.write(next(handle))
                 break
 
             for file in os.listdir(self.paths["aaidir"]):
-                handle = open(os.path.join(self.paths["aaidir"], file))
-                next(handle)
-                for line in handle:
-                    out.write(line)
-                handle.close()
+                with open(os.path.join(self.paths["aaidir"], file)) as handle:
+                    next(handle)
+                    for line in handle:
+                        out.write(line)
 
         shutil.rmtree(self.paths["dmnddir"])
         shutil.rmtree(self.paths["aaidir"])
 
-    def get_lineage_string(self, taxid, up_to_rank=None):
-        taxon = taxopy.Taxon(taxid, self.taxdb)
-        rank_to_name = dict(zip(taxon.rank_lineage, taxon.name_lineage))
+    def build_lineage(self, taxon, stop_rank=None):
         rank_order = ["vfam", "vsubfam", "vgenus", "vsubgen", "votu"]
+        rank_to_name = dict(zip(taxon.rank_lineage, taxon.name_lineage))
         parts = []
         for rank in rank_order:
             if rank in taxon.rank_taxid_dictionary:
                 parts.append(rank_to_name[rank])
             else:
-                parts.append("Unclassified")
-            if rank == up_to_rank:
+                parts.append("NA")
+            if stop_rank is not None and rank == stop_rank:
                 break
         return ";".join(parts)
 
-    def assign_aai_taxonomy(self, taxid, score):
+    def get_lineage_string(self, taxid, up_to_rank=None):
+        taxon = taxopy.Taxon(taxid, self.taxdb)
+        return self.build_lineage(taxon, stop_rank=up_to_rank)
+
+    def get_truncated_taxon(self, taxid, score):
         cutoffs = {
-            "votu": 95.0,
             "vsubgen": 80.0,
             "vgenus": 65.0,
             "vsubfam": 32.0,
@@ -379,107 +383,143 @@ class ViralClassifier:
         }
         taxon = taxopy.Taxon(taxid, self.taxdb)
         for rank, _ in taxon.ranked_name_lineage:
-            if rank in ("no rank", "votu"):
+            if rank in {"no rank", "votu"}:
                 continue
-            if score >= cutoffs[rank]:
-                return self.get_lineage_string(taxid, up_to_rank=rank)
+            cutoff = cutoffs.get(rank)
+            if cutoff is not None and score >= cutoff:
+                return taxopy.Taxon(taxon.rank_taxid_dictionary[rank], self.taxdb)
         return None
 
-    def find_top_hits(self):
-        for type in ["blastani", "blastaai"]:
-            tophits = blast_to_tophits(self.paths[type], refs=self.ref_genomes)
-            for qname, hit in tophits.items():
-                self.queries[qname][type] = hit
+    def taxon_to_lineage(self, taxon):
+        return self.build_lineage(taxon, stop_rank=taxon.rank)
 
-    def assign_taxonomy(self):
+    def find_top_hits(self):
+        if os.path.exists(self.paths["blastani"]):
+            tophits = blast_to_tophits(self.paths["blastani"], refs=self.ref_genomes)
+            for qname, hit in tophits.items():
+                self.queries[qname]["blastani"] = hit
+
+        if os.path.exists(self.paths["blastaai"]):
+            all_hits = defaultdict(list)
+            top_scores = {}
+            top_rows = {}
+            with open(self.paths["blastaai"]) as f:
+                for r in csv.DictReader(f, delimiter="\t"):
+                    if r["reference"] not in self.ref_genomes:
+                        continue
+                    score = float(r["norm_score"])
+                    r["norm_score"] = score
+                    all_hits[r["query"]].append(r)
+                    prev_score = top_scores.get(r["query"])
+                    if prev_score is None or score > prev_score:
+                        top_scores[r["query"]] = score
+                        top_rows[r["query"]] = r
+            for qname, hit in top_rows.items():
+                self.queries[qname]["blastaai"] = hit
+                self.queries[qname]["blastaai_all"] = all_hits[qname]
+
+    def assign_taxonomy(self, aai_similarity_threshold=0.825):
         for id in self.queries:
             r = {}
             r["genome_id"] = id
             r["genome_length"] = self.queries[id]["length"]
-            r["genome_num_genes"] = self.queries[id].get("genes")
-            r["taxon_id"] = None
-            r["taxon_lineage"] = None
-            r["class_method"] = None
-            r["class_rank"] = None
-            r["ani_reference"] = None
-            r["ani"] = None
-            r["ani_query_af"] = None
-            r["ani_target_af"] = None
+            r["genome_n_genes"] = self.queries[id].get("genes")
+            r["assigned_taxon"] = None
+            r["assignment_method"] = None
+            r["references_for_assignment"] = None
+            r["top_nucleotide_hit"] = None
+            r["top_nucleotide_hit_ani"] = None
+            r["top_nucleotide_hit_query_af"] = None
+            r["top_nucleotide_hit_target_af"] = None
             r["ani_taxonomy"] = None
-            r["aai_reference"] = None
-            r["shared_genes"] = None
-            r["aai"] = None
-            r["proteomic_similarity"] = None
-            r["aai_taxonomy"] = None
+            r["top_protein_hit"] = None
+            r["top_protein_hit_shared_genes"] = None
+            r["top_protein_hit_aai"] = None
+            r["top_protein_hit_proteomic_similarity"] = None
+            r["assigned_lineage"] = None
 
             if "blastani" in self.queries[id]:
                 h = self.queries[id]["blastani"]
-                r["ani_reference"] = h["reference"]
-                r["ani"] = h["ani"]
-                r["ani_query_af"] = h["qcov"]
-                r["ani_target_af"] = h["tcov"]
+                r["top_nucleotide_hit"] = h["reference"]
+                r["top_nucleotide_hit_ani"] = h["ani"]
+                r["top_nucleotide_hit_query_af"] = h["qcov"]
+                r["top_nucleotide_hit_target_af"] = h["tcov"]
                 r["ani_taxonomy"] = self.get_lineage_string(
                     self.ref_genomes[h["reference"]]["taxid"]
                 )
 
             if "blastaai" in self.queries[id]:
                 h = self.queries[id]["blastaai"]
-                r["aai_reference"] = h["reference"]
-                r["shared_genes"] = int(h["hits"])
-                r["aai"] = float(h["aai"])
-                r["proteomic_similarity"] = float(h["norm_score"])
-                r["aai_taxonomy"] = self.get_lineage_string(
-                    self.ref_genomes[h["reference"]]["taxid"]
-                )
+                r["top_protein_hit"] = h["reference"]
+                r["top_protein_hit_shared_genes"] = int(h["hits"])
+                r["top_protein_hit_aai"] = float(h["aai"])
+                r["top_protein_hit_proteomic_similarity"] = h["norm_score"]
 
             classified_by_ani = False
-            ani_reference = r["ani_reference"]
-            if ani_reference is not None:
-                ani = r["ani"]
-                ani_query_af = r["ani_query_af"]
-                ani_target_af = r["ani_target_af"]
-                ani_taxonomy = r["ani_taxonomy"]
-                assert ani is not None
-                assert ani_query_af is not None
-                assert ani_target_af is not None
-                assert ani_taxonomy is not None
-                if float(ani) >= 95 and (
-                    float(ani_query_af) >= 85 or float(ani_target_af) >= 85
+            top_nucleotide_hit = r["top_nucleotide_hit"]
+            if top_nucleotide_hit is not None:
+                top_nucleotide_hit_ani = r["top_nucleotide_hit_ani"]
+                top_nucleotide_hit_query_af = r["top_nucleotide_hit_query_af"]
+                top_nucleotide_hit_target_af = r["top_nucleotide_hit_target_af"]
+                assert top_nucleotide_hit_ani is not None
+                assert top_nucleotide_hit_query_af is not None
+                assert top_nucleotide_hit_target_af is not None
+                assert r["ani_taxonomy"] is not None
+                if float(top_nucleotide_hit_ani) >= 95 and (
+                    float(top_nucleotide_hit_query_af) >= 85
+                    or float(top_nucleotide_hit_target_af) >= 85
                 ):
-                    ani_taxid = self.ref_genomes[ani_reference]["taxid"]
+                    ani_taxid = self.ref_genomes[top_nucleotide_hit]["taxid"]
                     if ani_taxid != 1:
-                        while ani_taxonomy.endswith(";Unclassified"):
-                            ani_taxonomy = ani_taxonomy.rsplit(";Unclassified", 1)[0]
-                        r["ani_taxonomy"] = ani_taxonomy
-                        r["taxon_lineage"] = ani_taxonomy
-                        r["taxon_id"] = ani_taxonomy.split(";")[-1]
-                        r["class_method"] = "nucleotide"
-                        r["class_rank"] = "species"
+                        taxon = taxopy.Taxon(ani_taxid, self.taxdb)
+                        lineage = self.taxon_to_lineage(taxon)
+                        r["ani_taxonomy"] = lineage
+                        r["assigned_taxon"] = taxon.name
+                        r["assigned_lineage"] = lineage
+                        r["references_for_assignment"] = top_nucleotide_hit
+                        r["assignment_method"] = "nucleotide"
                         classified_by_ani = True
 
-            if not classified_by_ani and r["aai_reference"] is not None:
-                aai_taxid = self.ref_genomes[r["aai_reference"]]["taxid"]
-                r["taxon_lineage"] = self.assign_aai_taxonomy(
-                    aai_taxid, r["proteomic_similarity"]
-                )
-                if r["taxon_lineage"]:
-                    r["class_method"] = "protein"
-                    rank_dict = {
-                        "vFAM": "family",
-                        "vSUBFAM": "subfamily",
-                        "vGENUS": "genus",
-                        "vSUBGEN": "subgenus",
-                    }
-                    r["taxon_id"] = r["taxon_lineage"].split(";")[-1]
-                    r["class_rank"] = rank_dict[r["taxon_id"].split("-")[0]]
+            if not classified_by_ani and "blastaai_all" in self.queries[id]:
+                hits = self.queries[id]["blastaai_all"]
+                top_score = self.queries[id]["blastaai"]["norm_score"]
+                threshold = top_score * aai_similarity_threshold
 
-            if r["taxon_id"] is not None:
-                r.update(self.ref_clusters[r["taxon_id"]])
+                taxa, weights, used_refs = [], [], []
+                for h in hits:
+                    score = h["norm_score"]
+                    if score >= threshold:
+                        taxid = self.ref_genomes[h["reference"]]["taxid"]
+                        truncated = self.get_truncated_taxon(taxid, score)
+                        if truncated is not None and truncated.taxid != 1:
+                            taxa.append(truncated)
+                            weights.append(score)
+                            used_refs.append(h["reference"])
+
+                if taxa:
+                    if len(taxa) == 1:
+                        result = taxa[0]
+                    else:
+                        try:
+                            result = taxopy.find_majority_vote(
+                                taxa, self.taxdb, fraction=0.6, weights=weights
+                            )
+                        except MajorityVoteError:
+                            result = None
+                    if result is not None and result.taxid != 1:
+                        assigned_lineage = self.taxon_to_lineage(result)
+                        r["assigned_taxon"] = result.name
+                        r["assignment_method"] = "protein"
+                        r["assigned_lineage"] = assigned_lineage
+                        r["references_for_assignment"] = ",".join(used_refs)
+
+            if r["assigned_taxon"] is not None:
+                r.update(self.ref_clusters[r["assigned_taxon"]])
 
             self.queries[id]["record"] = r
 
     @staticmethod
-    def _format_row(record, fields):
+    def format_row(record, fields):
         vals = (record.get(f) for f in fields)
         return "\t".join("NA" if v is None else str(v) for v in vals)
 
@@ -487,30 +527,29 @@ class ViralClassifier:
         fields = [
             "genome_id",
             "genome_length",
-            "genome_num_genes",
-            "taxon_id",
-            "class_method",
-            "class_rank",
-            "ani_reference",
-            "ani",
-            "ani_query_af",
-            "ani_target_af",
-            "ani_taxonomy",
-            "aai_reference",
-            "shared_genes",
-            "aai",
-            "proteomic_similarity",
-            "aai_taxonomy",
+            "genome_n_genes",
+            "assigned_taxon",
+            "assigned_lineage",
+            "assignment_method",
+            "references_for_assignment",
+            "top_nucleotide_hit",
+            "top_nucleotide_hit_ani",
+            "top_nucleotide_hit_query_af",
+            "top_nucleotide_hit_target_af",
+            "top_protein_hit",
+            "top_protein_hit_shared_genes",
+            "top_protein_hit_aai",
+            "top_protein_hit_proteomic_similarity",
         ]
         with open(self.paths["classify_summary"], "w") as out:
             out.write("\t".join(fields) + "\n")
             for query in self.queries.values():
-                out.write(self._format_row(query["record"], fields) + "\n")
+                out.write(self.format_row(query["record"], fields) + "\n")
 
         fields = [
             "genome_id",
-            "taxon_id",
-            "taxon_lineage",
+            "assigned_taxon",
+            "assigned_lineage",
             "host_lineage",
             "ictv_lineage",
             "lifestyle",
@@ -520,7 +559,7 @@ class ViralClassifier:
         with open(self.paths["taxon_info"], "w") as out:
             out.write("\t".join(fields) + "\n")
             for query in self.queries.values():
-                out.write(self._format_row(query["record"], fields) + "\n")
+                out.write(self.format_row(query["record"], fields) + "\n")
 
 
 def main(
