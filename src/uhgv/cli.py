@@ -187,14 +187,15 @@ def download_database(output, keep, quiet):
     type=int,
     default=None,
     help="Number of BLASTN jobs to spawn in parallel. "
-    "Defaults to the number of threads.",
+    "Defaults to the total number of threads.",
 )
 @click.option(
-    "--cleanup",
+    "--keep-tmp",
     is_flag=True,
     default=False,
     show_default=True,
-    help="Remove the tmp temporary directory after the pipeline finishes.",
+    help="Keep temporary files after the pipeline finishes. "
+    "By default, temporary files are removed.",
 )
 @click.option(
     "--continue",
@@ -202,7 +203,7 @@ def download_database(output, keep, quiet):
     is_flag=True,
     default=False,
     show_default=True,
-    help="Continue where the program left off.",
+    help="Continue where the pipeline left off.",
 )
 @click.option(
     "--quiet",
@@ -212,7 +213,7 @@ def download_database(output, keep, quiet):
     help="Suppress logging messages.",
 )
 def classify(
-    input, output, database, sensitivity, threads, splits, continue_, quiet, cleanup
+    input, output, database, sensitivity, threads, splits, continue_, quiet, keep_tmp
 ):
     """
     Classify new genomes into UHGV taxa-like clusters.
@@ -226,7 +227,7 @@ def classify(
         splits=splits,
         continue_=continue_,
         quiet=quiet,
-        cleanup=cleanup,
+        keep_tmp=keep_tmp,
     )
 
 

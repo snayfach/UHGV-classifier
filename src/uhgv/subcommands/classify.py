@@ -571,7 +571,7 @@ def main(
     splits=None,
     continue_=False,
     quiet=False,
-    cleanup=False,
+    keep_tmp=False,
 ):
 
     prog_start = time.time()
@@ -611,7 +611,7 @@ def main(
     console.log("Writing output files")
     vclass.write_results()
 
-    if cleanup and os.path.exists(vclass.paths["tmpdir"]):
+    if not keep_tmp and os.path.exists(vclass.paths["tmpdir"]):
         console.log("Removing temporary directory")
         shutil.rmtree(vclass.paths["tmpdir"])
 
