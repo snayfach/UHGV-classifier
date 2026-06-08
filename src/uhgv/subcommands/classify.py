@@ -121,14 +121,14 @@ class ViralClassifier:
             self.queries[r.accession]["length"] = len(r)
 
     def load_refdb(self):
-        self.genome_to_taxid = {}
+        self.ref_genomes = {}
         map_path = os.path.join(self.paths["dbdir"], "genome_metadata.tsv")
         with open(map_path) as fi:
             for r in csv.DictReader(fi, delimiter="\t"):
-                self.genome_to_taxid[r["genome_id"]] = int(r["taxid"])
-        self.ref_genomes = {
-            gid: {"taxid": tid} for gid, tid in self.genome_to_taxid.items()
-        }
+                self.ref_genomes[r["genome_id"]] = {
+                    "taxid": int(r["taxid"]),
+                    "checkv_completeness": float(r.get("checkv_completeness") or 0.0),
+                }
         self.taxdb = taxopy.TaxDb(
             nodes_dmp=os.path.join(self.paths["dbdir"], "uhgv_taxdump", "nodes.dmp"),
             names_dmp=os.path.join(self.paths["dbdir"], "uhgv_taxdump", "names.dmp"),
@@ -418,7 +418,47 @@ class ViralClassifier:
                 self.queries[qname]["blastaai"] = hit
                 self.queries[qname]["blastaai_all"] = all_hits[qname]
 
-    def assign_taxonomy(self, aai_similarity_threshold=0.825):
+    def assign_consensus_taxon(self, query_id, aai_similarity_threshold=0.825):
+        hits = self.queries[query_id]["blastaai_all"]
+        top_score = self.queries[query_id]["blastaai"]["norm_score"]
+        threshold = top_score * aai_similarity_threshold
+
+        taxa, weights, used_refs = [], [], []
+        for h in hits:
+            score = h["norm_score"]
+            if score >= threshold:
+                ref = self.ref_genomes[h["reference"]]
+                taxid = ref["taxid"]
+                completeness = ref["checkv_completeness"]
+                truncated = self.get_truncated_taxon(taxid, score)
+                if truncated is not None and truncated.taxid != 1:
+                    taxa.append(truncated)
+                    weights.append(score * (completeness**0.5))
+                    used_refs.append(h["reference"])
+
+        if not taxa:
+            return None
+
+        if len(taxa) == 1:
+            result = taxa[0]
+        else:
+            try:
+                result = taxopy.find_majority_vote(
+                    taxa, self.taxdb, fraction=0.6, weights=weights
+                )
+            except MajorityVoteError:
+                return None
+
+        if result is None or result.taxid == 1:
+            return None
+
+        return {
+            "taxon": result.name,
+            "lineage": self.taxon_to_lineage(result),
+            "references": ",".join(used_refs),
+        }
+
+    def assign_taxonomy(self, aai_similarity_threshold=0.8):
         for id in self.queries:
             r = {}
             r["genome_id"] = id
@@ -481,37 +521,12 @@ class ViralClassifier:
                         classified_by_ani = True
 
             if not classified_by_ani and "blastaai_all" in self.queries[id]:
-                hits = self.queries[id]["blastaai_all"]
-                top_score = self.queries[id]["blastaai"]["norm_score"]
-                threshold = top_score * aai_similarity_threshold
-
-                taxa, weights, used_refs = [], [], []
-                for h in hits:
-                    score = h["norm_score"]
-                    if score >= threshold:
-                        taxid = self.ref_genomes[h["reference"]]["taxid"]
-                        truncated = self.get_truncated_taxon(taxid, score)
-                        if truncated is not None and truncated.taxid != 1:
-                            taxa.append(truncated)
-                            weights.append(score)
-                            used_refs.append(h["reference"])
-
-                if taxa:
-                    if len(taxa) == 1:
-                        result = taxa[0]
-                    else:
-                        try:
-                            result = taxopy.find_majority_vote(
-                                taxa, self.taxdb, fraction=0.6, weights=weights
-                            )
-                        except MajorityVoteError:
-                            result = None
-                    if result is not None and result.taxid != 1:
-                        assigned_lineage = self.taxon_to_lineage(result)
-                        r["assigned_taxon"] = result.name
-                        r["assignment_method"] = "protein"
-                        r["assigned_lineage"] = assigned_lineage
-                        r["references_for_assignment"] = ",".join(used_refs)
+                result = self.assign_consensus_taxon(id, aai_similarity_threshold)
+                if result is not None:
+                    r["assigned_taxon"] = result["taxon"]
+                    r["assignment_method"] = "protein"
+                    r["assigned_lineage"] = result["lineage"]
+                    r["references_for_assignment"] = result["references"]
 
             if r["assigned_taxon"] is not None:
                 r.update(self.ref_clusters[r["assigned_taxon"]])
