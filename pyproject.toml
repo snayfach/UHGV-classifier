@@ -1,6 +1,6 @@
 [project]
 name = "uhgv"
-version = "0.1.0"
+version = "2.0.0"
 description = "Taxonomic classifier for the Unified Human Gut Virome Catalog"
 requires-python = ">=3.10"
 license = "BSD-3-Clause-LBNL"
