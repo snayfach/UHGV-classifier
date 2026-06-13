@@ -137,5 +137,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# uv
-uv.lock
+# Pixi
+.pixi/*
+!.pixi/config.toml
