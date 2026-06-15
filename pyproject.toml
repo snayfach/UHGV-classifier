@@ -8,6 +8,7 @@ authors = [
   { name = "Stephen Nayfach" },
   { name = "Antonio Camargo" },
 ]
+readme = "README.md"
 keywords = ["bioinformatics", "genomics", "metagenomics", "viromics"]
 classifiers = [
   "Intended Audience :: Science/Research",
