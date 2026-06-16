@@ -14,23 +14,31 @@ Given one or more viral genome sequences, UHGV-classifier will:
 
 ## Installation
 
-UHGV-classifier uses [Pixi](https://pixi.sh/) to manage its software environment and dependencies. Install Pixi first, then clone the repository and run the `--help` command to see usage instructions:
+To install UHGV-classifier we recommend using [Pixi](https://pixi.sh/), [Mamba](https://mamba.readthedocs.io/), or [Conda](https://docs.conda.io/projects/conda/en/latest/index.html). These package management tools will handle the installation of all dependencies for you.
+
+Pixi allows you to install UHGV-classifier as a globally available command for easy execution:
 
 ```sh
-git clone https://github.com/snayfach/UHGV-classifier.git
-cd UHGV-classifier
-
-pixi run uhgv --help
+pixi global install -c conda-forge -c bioconda uhgv
+uhgv --help
 ```
 
-Results will be written to the `output/` directory.
+With Mamba and Conda, you will create an environment for UHGV-classifier and activate it before being able to use it:
+
+```sh
+# Create an environment for UHGV-classifier
+mamba create -n uhgv -c conda-forge -c bioconda uhgv
+# Activate the UHGV-classifier environment
+mamba activate uhgv
+uhgv --help
+```
 
 ## Database setup
 
 UHGV-classifier requires a local copy of a reference database of viral genomes from the human gut. Download it using the `download-database` subcommand:
 
 ```sh
-pixi run uhgv download-database .
+uhgv download-database .
 ```
 
 ## Example workflow
@@ -44,7 +52,7 @@ curl -O https://raw.githubusercontent.com/snayfach/UHGV-classifier/main/example/
 Classify the phage genomes in `viral_sequences.fna` using the `classify` subcommand:
 
 ```sh
-pixi run uhgv classify viral_sequences.fna output uhgv-db-v1.0
+uhgv classify viral_sequences.fna output uhgv-db-v1.0
 ```
 
 This command will generate an `output` directory containing two output files:
@@ -112,4 +120,5 @@ If you use the UHGV-classifier in your research, please cite both the software a
 > Camargo, A. P., Baltoumas, F. A., Ndela, E. O., Fiamenghi, M. B., Merrill, B. D., Carter, M. M., Pinto, Y., Chakraborty, M., Andreeva, A., Ghiotto, G., Shaw, J., Proal, A. D., Sonnenburg, J. L., Bhatt, A. S., Roux, S., Pavlopoulos, G. A., Nayfach, S., & Kyrpides, N. C. — _bioRxiv_ (2025), DOI: 10.1101/2025.11.01.686033
 
 **Software:**
-> Nayfach, S. (2025). UHGV classifier (Version 1.0.0) [Software]. Zenodo. <https://doi.org/10.5281/zenodo.17418882>
+
+> Nayfach, S., Camargo, A. P. (2026). UHGV classifier (Version 2.0.0) [Software]. Zenodo. <https://doi.org/10.5281/zenodo.20695584>
